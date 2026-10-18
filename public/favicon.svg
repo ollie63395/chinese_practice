@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="#c73e2a"/>
+  <text x="32" y="45" font-size="34" font-weight="700" text-anchor="middle" fill="#fff"
+    font-family="'Kaiti SC','STKaiti','KaiTi','Songti SC','Noto Serif SC','SimSun',serif">词</text>
+</svg>

@@ -1,0 +1,131 @@
+import { BookOpen, DatabaseBackup, History, Layers, Mic, Plus, type LucideIcon } from 'lucide-react';
+import { Link, Outlet, ScrollRestoration, useLocation } from 'react-router';
+import { cn } from '../lib/cn';
+import { ConfirmProvider, ToastProvider } from './feedback';
+import { buttonClass } from './ui';
+
+interface NavItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  isActive: (path: string) => boolean;
+}
+
+const NAV: NavItem[] = [
+  {
+    to: '/words',
+    label: 'Từ vựng',
+    icon: BookOpen,
+    isActive: (p) => p === '/words' || (p.startsWith('/words/') && p !== '/words/new'),
+  },
+  { to: '/flashcards', label: 'Thẻ ghi nhớ', icon: Layers, isActive: (p) => p.startsWith('/flashcards') },
+  { to: '/speaking', label: 'Luyện nói', icon: Mic, isActive: (p) => p.startsWith('/speaking') },
+  { to: '/history', label: 'Lịch sử', icon: History, isActive: (p) => p.startsWith('/history') },
+];
+
+export function Layout() {
+  const { pathname } = useLocation();
+
+  return (
+    <ToastProvider>
+      <ConfirmProvider>
+        <div className="flex min-h-dvh flex-col">
+          <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur-md">
+            <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-4">
+              <Link to="/" className="flex items-center gap-2.5 rounded-lg font-semibold" aria-label="Trang chủ Cíhuì">
+                <span
+                  lang="zh-Hans"
+                  className="grid size-8 place-items-center rounded-lg bg-accent font-zh text-lg font-semibold text-on-accent shadow-sm"
+                >
+                  词
+                </span>
+                <span className="text-lg tracking-tight">Cíhuì</span>
+              </Link>
+              <nav aria-label="Điều hướng chính" className="ml-6 hidden items-center gap-1 md:flex">
+                {NAV.map((item) => {
+                  const active = item.isActive(pathname);
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      aria-current={active ? 'page' : undefined}
+                      className={cn(
+                        'rounded-lg px-3 py-1.5 text-sm font-medium transition',
+                        active ? 'bg-card text-ink shadow-xs ring-1 ring-line' : 'text-muted hover:text-ink',
+                      )}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+              <div className="ml-auto flex items-center gap-1.5">
+                <Link
+                  to="/backup"
+                  title="Sao lưu & khôi phục"
+                  aria-label="Sao lưu & khôi phục"
+                  aria-current={pathname === '/backup' ? 'page' : undefined}
+                  className={buttonClass('ghost', 'icon')}
+                >
+                  <DatabaseBackup />
+                </Link>
+                {/* On phones the bottom bar has its own add button. */}
+                <Link to="/words/new" className={buttonClass('primary', 'sm', 'max-md:hidden')}>
+                  <Plus /> Thêm từ
+                </Link>
+              </div>
+            </div>
+          </header>
+
+          <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pt-10 md:pb-16">
+            <Outlet />
+          </main>
+
+          <MobileNav pathname={pathname} />
+        </div>
+        <ScrollRestoration />
+      </ConfirmProvider>
+    </ToastProvider>
+  );
+}
+
+function MobileNav({ pathname }: { pathname: string }) {
+  const tab = (item: NavItem) => {
+    const active = item.isActive(pathname);
+    const Icon = item.icon;
+    return (
+      <Link
+        key={item.to}
+        to={item.to}
+        aria-current={active ? 'page' : undefined}
+        className={cn(
+          'flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition',
+          active ? 'text-accent-ink' : 'text-muted',
+        )}
+      >
+        <Icon className="size-5" strokeWidth={active ? 2.4 : 2} />
+        {item.label}
+      </Link>
+    );
+  };
+
+  return (
+    <nav
+      aria-label="Điều hướng chính"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+    >
+      <div className="mx-auto grid max-w-md grid-cols-5 items-center px-2">
+        {NAV.slice(0, 2).map(tab)}
+        <Link
+          to="/words/new"
+          aria-label="Thêm từ"
+          aria-current={pathname === '/words/new' ? 'page' : undefined}
+          className="mx-auto grid size-12 place-items-center rounded-2xl bg-accent text-on-accent shadow-md shadow-accent/30 transition active:scale-95"
+        >
+          <Plus className="size-6" />
+        </Link>
+        {NAV.slice(2).map(tab)}
+      </div>
+    </nav>
+  );
+}

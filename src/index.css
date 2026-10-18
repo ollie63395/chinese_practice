@@ -1,0 +1,139 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans:
+    'Be Vietnam Pro', 'Noto Sans SC', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  /* A Kai (楷体) face is drawn like careful brushwork, close to how learners are taught to write. */
+  --font-zh: 'LXGW WenKai', 'Kaiti SC', 'STKaiti', 'KaiTi', 'Noto Sans SC', serif;
+  /* Be Vietnam Pro has no third-tone vowels (ǎ ǐ ǒ ǔ ǚ), so pinyin gets a font that has them all. */
+  --font-pinyin: 'Noto Sans SC', 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+
+  /* Washi paper, sumi ink, shu (vermilion) and ai (indigo). */
+  --color-paper: #f6f1e7;
+  --color-card: #fffdf9;
+  --color-sunken: #efe8db;
+  --color-ink: #24211d;
+  --color-muted: #6f675c;
+  --color-faint: #a39a8c;
+  --color-line: #e3dacb;
+  --color-accent: #c73e2a;
+  --color-accent-hover: #ad3321;
+  --color-accent-ink: #b3361f;
+  --color-accent-soft: #f8e3dc;
+  --color-on-accent: #ffffff;
+  --color-ai: #2f4b6e;
+  --color-ai-soft: #e3e9f1;
+  --color-good: #3a7a4d;
+  --color-good-soft: #dff0e3;
+  --color-danger: #b42318;
+  --color-danger-soft: #fde8e5;
+  --color-warn: #8a5a00;
+  --color-warn-soft: #fbefd5;
+
+  --animate-rise: rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-pulse-soft: pulse-soft 1s ease-in-out infinite;
+  --animate-fade-in-late: fade-in 0.2s ease-out 0.4s both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+  @keyframes pulse-soft {
+    50% {
+      opacity: 0.55;
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: #171513;
+    --color-card: #211e1b;
+    --color-sunken: #2a2622;
+    --color-ink: #f2ede5;
+    --color-muted: #b0a799;
+    --color-faint: #7b7367;
+    --color-line: #3a342e;
+    --color-accent: #c4432d;
+    --color-accent-hover: #d65540;
+    --color-accent-ink: #f08a74;
+    --color-accent-soft: #3f231d;
+    --color-ai: #a9c1e0;
+    --color-ai-soft: #243246;
+    --color-good: #84c79a;
+    --color-good-soft: #1f3326;
+    --color-danger: #f28b7d;
+    --color-danger-soft: #3d1f1b;
+    --color-warn: #e9c46a;
+    --color-warn-soft: #3a2f17;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-paper font-sans text-ink antialiased;
+  }
+  ::selection {
+    background: var(--color-accent-soft);
+  }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer components {
+  /* Flashcard flip. Both faces share one grid cell, so the card grows to fit the taller face. */
+  .flip-scene {
+    perspective: 1400px;
+  }
+  .flip-card {
+    display: grid;
+    transform-style: preserve-3d;
+    transition: transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .flip-card[data-flipped='true'] {
+    transform: rotateY(180deg);
+  }
+  .flip-face {
+    grid-area: 1 / 1;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    transform: rotateY(0deg);
+  }
+  .flip-face-back {
+    transform: rotateY(180deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .flip-card {
+      transition: none;
+    }
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
