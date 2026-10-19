@@ -14,13 +14,13 @@ describe('base64 helpers', () => {
 describe('parseBackup', () => {
   const word = { id: 'w1', word: '猫', reading: 'māo', meaning: 'mèo', tags: ['động vật'], createdAt: 1, updatedAt: 2 };
 
-  it('rejects files that are not Cíhuì backups', () => {
-    expect(() => parseBackup({ hello: 'world' })).toThrow(/Tệp này không phải bản sao lưu của Cíhuì/);
+  it('rejects files that are not Qinglan Chinese Class backups', () => {
+    expect(() => parseBackup({ hello: 'world' })).toThrow(/Tệp này không phải bản sao lưu của Qinglan Chinese Class/);
     expect(() => parseBackup([])).toThrow();
   });
 
   it('rejects backups from a newer version', () => {
-    expect(() => parseBackup({ app: 'cihui', version: 99, words: [] })).toThrow(/phiên bản Cíhuì mới hơn/);
+    expect(() => parseBackup({ app: 'cihui', version: 99, words: [] })).toThrow(/phiên bản Qinglan Chinese Class mới hơn/);
   });
 
   it('keeps valid words and skips broken ones', () => {
@@ -91,6 +91,6 @@ describe('parseBackup', () => {
 
 describe('backupFileName', () => {
   it('includes the date', () => {
-    expect(backupFileName(new Date(2026, 0, 5))).toBe('cihui-backup-2026-01-05.json');
+    expect(backupFileName(new Date(2026, 0, 5))).toBe('qinglan-chinese-backup-2026-01-05.json');
   });
 });

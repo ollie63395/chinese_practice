@@ -18,7 +18,7 @@ export function useObjectUrl(blob: Blob | null | undefined): string | undefined 
 
 export function useDocumentTitle(title: string): void {
   useEffect(() => {
-    document.title = title ? `${title} · Cíhuì` : 'Cíhuì';
+    document.title = title ? `${title} · Qinglan Chinese Class` : 'Qinglan Chinese Class';
   }, [title]);
 }
 

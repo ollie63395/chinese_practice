@@ -28,9 +28,7 @@ export function HomePage() {
         >
           词汇
         </span>
-        <p lang="zh-Hans" className="relative font-zh text-sm font-semibold text-accent-ink">
-          词汇 · Cíhuì
-        </p>
+        <p className="relative text-sm font-semibold text-accent-ink">Qinglan Chinese Class</p>
         <h1 className="relative mt-2 text-3xl font-bold tracking-tight md:text-4xl">Kho từ vựng tiếng Trung của bạn</h1>
         <p className="relative mt-3 max-w-prose text-muted">
           Thêm những từ bạn vừa học, rồi ôn lại bằng thẻ ghi nhớ hoặc vận dụng chúng trong thử thách luyện nói có

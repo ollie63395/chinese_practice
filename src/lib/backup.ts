@@ -62,7 +62,7 @@ export async function createBackup(): Promise<Blob> {
 
 export function backupFileName(date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `cihui-backup-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}.json`;
+  return `qinglan-chinese-backup-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}.json`;
 }
 
 /** Reads and validates a backup file. Entries that don't look right are skipped. */
@@ -71,17 +71,17 @@ export async function readBackup(file: Blob): Promise<BackupContents> {
   try {
     json = JSON.parse(await file.text());
   } catch {
-    throw new Error('Tệp này không phải bản sao lưu của Cíhuì (không phải JSON hợp lệ).');
+    throw new Error('Tệp này không phải bản sao lưu của Qinglan Chinese Class (không phải JSON hợp lệ).');
   }
   return parseBackup(json);
 }
 
 export function parseBackup(json: unknown): BackupContents {
   if (!isRecord(json) || json.app !== APP_ID || !Array.isArray(json.words)) {
-    throw new Error('Tệp này không phải bản sao lưu của Cíhuì.');
+    throw new Error('Tệp này không phải bản sao lưu của Qinglan Chinese Class.');
   }
   if (typeof json.version === 'number' && json.version > FORMAT_VERSION) {
-    throw new Error('Bản sao lưu này được tạo bởi phiên bản Cíhuì mới hơn.');
+    throw new Error('Bản sao lưu này được tạo bởi phiên bản Qinglan Chinese Class mới hơn.');
   }
   const images = (Array.isArray(json.images) ? json.images : []).flatMap((raw) =>
     isRecord(raw) &&

@@ -36,7 +36,7 @@ export function RouteErrorPage() {
         title="Đã có lỗi xảy ra"
         action={
           <a href="./" className={buttonClass('primary')}>
-            Tải lại Cíhuì
+            Tải lại Qinglan Chinese Class
           </a>
         }
       >

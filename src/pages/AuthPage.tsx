@@ -31,7 +31,7 @@ export function AuthPage() {
           {mode === 'sign-up' ? '注册' : mode === 'forgot' ? '找回密码' : '欢迎'}
         </p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
-          {mode === 'sign-up' ? 'Tạo tài khoản' : mode === 'forgot' ? 'Quên mật khẩu' : 'Chào mừng bạn đến với Cíhuì'}
+          {mode === 'sign-up' ? 'Tạo tài khoản' : mode === 'forgot' ? 'Quên mật khẩu' : 'Chào mừng bạn đến với Qinglan Chinese Class'}
         </h1>
         <p className="mt-2 text-muted">
           {mode === 'forgot'

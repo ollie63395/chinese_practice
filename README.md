@@ -1,4 +1,4 @@
-# Cíhuì 词汇
+# Qinglan Chinese Class
 
 Kho từ vựng tiếng Trung (tiếng Phổ thông) dành cho người Việt. Thêm những từ bạn học được, ôn lại bằng thẻ ghi nhớ, rồi vận dụng chúng trong bài luyện nói có bấm giờ. Mỗi người có tài khoản riêng; giáo viên theo dõi được việc học của mọi học viên.
 
@@ -31,7 +31,7 @@ Trang web không thể tự chuyển bàn phím của bạn sang tiếng Trung, 
 - Dấu nháy để tách âm tiết: `xi1'an1` → Xī'ān. Chữ hoa được giữ nguyên: `Bei3jing1` → Běijīng.
 - Gõ thêm một số sau âm tiết đã có dấu sẽ đổi dấu đó: `hǎo` + `4` → hào.
 - Pinyin đã có dấu dán từ nơi khác được giữ nguyên.
-- **Hãy tắt bộ gõ tiếng Việt (Telex/VNI) khi gõ pinyin.** Nếu không, bộ gõ sẽ đổi chữ của bạn (`er` → ẻ, `dd` → đ, và với VNI thì `ni3` → nỉ). Cíhuì sẽ báo lỗi nếu thấy chữ tiếng Việt lẫn vào pinyin.
+- **Hãy tắt bộ gõ tiếng Việt (Telex/VNI) khi gõ pinyin.** Nếu không, bộ gõ sẽ đổi chữ của bạn (`er` → ẻ, `dd` → đ, và với VNI thì `ni3` → nỉ). Qinglan Chinese Class sẽ báo lỗi nếu thấy chữ tiếng Việt lẫn vào pinyin.
 
 ## Phím tắt
 

@@ -31,7 +31,7 @@ test('signs up with an email, stays signed in, signs out and back in', async ({ 
   await expect(page.getByText(`Đăng nhập bằng ${account.login}.`)).toBeVisible();
   await expect(page.getByText('Học viên', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Đăng xuất' }).click();
-  await expect(page.getByRole('heading', { name: 'Chào mừng bạn đến với Cíhuì' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Chào mừng bạn đến với Qinglan Chinese Class' })).toBeVisible();
 
   await page.locator('#login').fill(account.login);
   await page.locator('#password').fill('sai-mat-khau');

@@ -71,7 +71,7 @@ export function BackupPage() {
       <PageHeader
         zh="备份"
         title="Sao lưu & khôi phục"
-        description="Từ vựng, hình ảnh và lịch sử luyện tập được lưu trong tài khoản của bạn, nên bạn dùng được trên mọi thiết bị. Bạn cũng có thể tải tất cả về thành một tệp, hoặc đưa một tệp sao lưu vào tài khoản: chẳng hạn dữ liệu từ phiên bản Cíhuì cũ chỉ lưu trong trình duyệt, hoặc danh sách từ giáo viên gửi cho bạn."
+        description="Từ vựng, hình ảnh và lịch sử luyện tập được lưu trong tài khoản của bạn, nên bạn dùng được trên mọi thiết bị. Bạn cũng có thể tải tất cả về thành một tệp, hoặc đưa một tệp sao lưu vào tài khoản: chẳng hạn dữ liệu từ phiên bản Qinglan Chinese Class cũ chỉ lưu trong trình duyệt, hoặc danh sách từ giáo viên gửi cho bạn."
       />
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -86,7 +86,7 @@ export function BackupPage() {
 
         <Panel icon={<Upload />} title="Khôi phục từ bản sao lưu">
           <p className="text-sm text-muted">
-            Chọn tệp sao lưu của Cíhuì (.json). Các từ và buổi luyện tập trong đó sẽ được thêm vào tài khoản của bạn.
+            Chọn tệp sao lưu của Qinglan Chinese Class (.json). Các từ và buổi luyện tập trong đó sẽ được thêm vào tài khoản của bạn.
           </p>
           <input
             ref={fileInput}

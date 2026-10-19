@@ -109,14 +109,14 @@ function SignedIn({ userId }: { userId: string }) {
 
 function Brand() {
   return (
-    <Link to="/" className="flex items-center gap-2.5 rounded-lg font-semibold" aria-label="Trang chủ Cíhuì">
+    <Link to="/" className="flex items-center gap-2.5 rounded-lg font-semibold" aria-label="Trang chủ Qinglan Chinese Class">
       <span
         lang="zh-Hans"
         className="grid size-8 place-items-center rounded-lg bg-accent font-zh text-lg font-semibold text-on-accent shadow-sm"
       >
         词
       </span>
-      <span className="text-lg tracking-tight">Cíhuì</span>
+      <span className="text-lg tracking-tight">Qinglan Chinese Class</span>
     </Link>
   );
 }

@@ -44,7 +44,7 @@ function StudentList() {
       />
       {studentCount === 0 ? (
         <EmptyState icon={<Users />} title="Chưa có học viên nào">
-          Khi học viên tạo tài khoản trên Cíhuì, họ sẽ hiện ở đây.
+          Khi học viên tạo tài khoản trên Qinglan Chinese Class, họ sẽ hiện ở đây.
         </EmptyState>
       ) : (
         <div className="mb-6">

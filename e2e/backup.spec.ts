@@ -40,7 +40,7 @@ test('backs everything up and restores it into another account', async ({ page, 
   const downloading = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Tải bản sao lưu' }).click();
   const download = await downloading;
-  expect(download.suggestedFilename()).toMatch(/^cihui-backup-\d{4}-\d{2}-\d{2}\.json$/);
+  expect(download.suggestedFilename()).toMatch(/^qinglan-chinese-backup-\d{4}-\d{2}-\d{2}\.json$/);
   const path = await download.path();
   const backup = JSON.parse(await readFile(path, 'utf8'));
   expect(backup.words).toHaveLength(1);
@@ -66,5 +66,5 @@ test('rejects files that are not backups', async ({ page }) => {
   await page
     .locator('input[type=file]')
     .setInputFiles({ name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"hello":1}') });
-  await expect(page.getByText('Tệp này không phải bản sao lưu của Cíhuì.')).toBeVisible();
+  await expect(page.getByText('Tệp này không phải bản sao lưu của Qinglan Chinese Class.')).toBeVisible();
 });
