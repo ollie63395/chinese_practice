@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { ANIMALS, items, PNG, seed, WORDS } from './helpers';
+import { ANIMALS, items, PNG, seed, signUp, WORDS } from './helpers';
+
+// Every test starts as a new student.
+test.beforeEach(async ({ page }) => {
+  await signUp(page);
+});
 
 test('adds a word with a pinyin reading, tags and an image', async ({ page }) => {
   await page.goto('/#/words/new');

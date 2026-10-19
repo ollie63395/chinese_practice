@@ -49,6 +49,21 @@ describe('parseBackup', () => {
     expect(result.images[0].blob.type).toBe('image/png');
   });
 
+  it('skips pictures whose id could reach outside the account’s folder, and over-long ids', () => {
+    const result = parseBackup({
+      app: 'cihui',
+      version: 1,
+      words: [
+        { ...word, id: 'a', imageId: '../other' },
+        { ...word, id: 'x'.repeat(101) },
+      ],
+      images: [{ id: '../other', type: 'image/png', data: btoa('png') }],
+    });
+    expect(result.images).toEqual([]);
+    expect(result.words.map((w) => w.id)).toEqual(['a']);
+    expect(result.words[0].imageId).toBeUndefined();
+  });
+
   it('reads practice logs', () => {
     const result = parseBackup({
       app: 'cihui',

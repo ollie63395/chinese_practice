@@ -1,11 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
-import { items, nav, seed, WORDS } from './helpers';
+import { items, nav, seed, signUp, WORDS } from './helpers';
 
 const removeButtons = (page: Page) => page.getByRole('button', { name: /^Bỏ / });
 const wordTiles = (page: Page) => page.getByRole('main').getByRole('listitem').getByRole('button');
 
 test('draws words, lets you change them, times the speech and logs it', async ({ page }) => {
   await page.clock.install();
+  await signUp(page);
   await seed(page, WORDS);
   await nav(page).getByRole('link', { name: 'Luyện nói' }).click();
 
@@ -63,6 +64,7 @@ test('draws words, lets you change them, times the speech and logs it', async ({
 
 test('practises a past session again, then deletes it', async ({ page }) => {
   await page.clock.install();
+  await signUp(page);
   await seed(page, WORDS);
   await page.goto('/#/speaking');
   await page.getByRole('button', { name: /^Bốc \d+ từ$/ }).click();
@@ -85,6 +87,7 @@ test('practises a past session again, then deletes it', async ({ page }) => {
 });
 
 test('asks before leaving a practice in progress', async ({ page }) => {
+  await signUp(page);
   await seed(page, WORDS);
   await page.goto('/#/speaking');
   await page.getByRole('button', { name: /^Bốc/ }).click();

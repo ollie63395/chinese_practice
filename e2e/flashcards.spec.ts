@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { nav, seed, WORDS } from './helpers';
+import { nav, seed, signUp, WORDS } from './helpers';
+
+test.beforeEach(async ({ page }) => {
+  await signUp(page);
+});
 
 test('revises a tag, reviews the missed card, then gets a perfect round', async ({ page }) => {
   await seed(page, WORDS);

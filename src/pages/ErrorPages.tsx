@@ -20,7 +20,7 @@ export function NotFoundPage() {
   );
 }
 
-/** Shown when a page throws, e.g. if this browser blocks storage. */
+/** Shown when a page throws, e.g. when the server can't be reached. */
 export function RouteErrorPage() {
   const error = useRouteError();
   const message = isRouteErrorResponse(error)
@@ -42,8 +42,8 @@ export function RouteErrorPage() {
       >
         <p>{message}</p>
         <p className="mt-2 text-sm">
-          Cíhuì lưu từ vựng của bạn ngay trong trình duyệt này. Nếu bạn đang dùng cửa sổ ẩn danh hoặc đã chặn dữ liệu
-          trang web, bộ nhớ có thể không dùng được.
+          Hãy kiểm tra kết nối mạng rồi tải lại trang. Từ vựng và lịch sử luyện tập của bạn vẫn được lưu an toàn trong
+          tài khoản.
         </p>
       </EmptyState>
     </div>

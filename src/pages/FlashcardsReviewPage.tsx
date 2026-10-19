@@ -4,8 +4,9 @@ import { Link, useSearchParams } from 'react-router';
 import { SpeakButton } from '../components/SpeakButton';
 import { buttonClass, EmptyState, hanziSizeClass, MixedText, PageLoader, TagChip } from '../components/ui';
 import { WordImage } from '../components/WordImage';
-import { db } from '../db/db';
+import { useAccount } from '../db/auth';
 import type { Word } from '../db/types';
+import { fetchWords } from '../db/words';
 import { cn } from '../lib/cn';
 import { useDocumentTitle } from '../lib/hooks';
 import { shuffle } from '../lib/random';
@@ -18,23 +19,27 @@ export function FlashcardsReviewPage() {
   const tagsKey = params.getAll('tag').join('\n');
   const front: CardFront = params.get('front') === 'meaning' ? 'meaning' : 'word';
   const shuffled = params.get('shuffle') !== '0';
+  const me = useAccount().id;
   const [words, setWords] = useState<Word[] | null>(null);
+  const [error, setError] = useState<unknown>();
 
   // Load the deck once rather than live, so cards don't shift around mid-session.
   useEffect(() => {
     let cancelled = false;
     const tags = tagsKey ? tagsKey.split('\n') : [];
-    void db.words
-      .orderBy('createdAt')
-      .toArray()
-      .then((all) => {
+    fetchWords(me).then(
+      (newestFirst) => {
+        const all = newestFirst.slice().reverse();
         if (!cancelled) setWords(tags.length > 0 ? wordsWithAnyTag(all, tags) : all);
-      });
+      },
+      (err: unknown) => !cancelled && setError(err),
+    );
     return () => {
       cancelled = true;
     };
-  }, [tagsKey]);
+  }, [tagsKey, me]);
 
+  if (error) throw error;
   if (!words) return <PageLoader />;
   if (words.length === 0) {
     return (
@@ -232,7 +237,7 @@ function Flashcard({ word, front, flipped, onFlip }: FlashcardProps) {
             chinese
           ) : (
             <>
-              <WordImage imageId={word.imageId} alt="" className="max-h-44 rounded-2xl object-contain" />
+              <WordImage path={word.imagePath} alt="" className="max-h-44 rounded-2xl object-contain" />
               <p className="text-3xl font-semibold md:text-4xl">
                 <MixedText>{word.meaning}</MixedText>
               </p>
@@ -253,7 +258,7 @@ function Flashcard({ word, front, flipped, onFlip }: FlashcardProps) {
           <p className="text-xl md:text-2xl">
             <MixedText>{word.meaning}</MixedText>
           </p>
-          <WordImage imageId={word.imageId} alt="" className="max-h-36 rounded-xl object-contain" />
+          <WordImage path={word.imagePath} alt="" className="max-h-36 rounded-xl object-contain" />
           {word.tags.length > 0 && (
             <div className="flex flex-wrap justify-center gap-1">
               {word.tags.map((tag) => (

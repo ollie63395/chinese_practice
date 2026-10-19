@@ -149,7 +149,7 @@ interface PrepWordProps {
 function PrepWord({ word, canSwap, onSwap, onRemove }: PrepWordProps) {
   return (
     <li className="flex animate-rise gap-3 rounded-2xl border border-line bg-card p-4 shadow-xs">
-      <WordImage imageId={word.imageId} alt="" className="size-14 shrink-0 rounded-xl object-cover" />
+      <WordImage path={word.imagePath} alt="" className="size-14 shrink-0 rounded-xl object-cover" />
       <div className="min-w-0 flex-1">
         <p lang="zh-Hans" className={cn('font-zh leading-tight font-semibold break-words', hanziSizeClass(word.word, 'tile'))}>
           {word.word}

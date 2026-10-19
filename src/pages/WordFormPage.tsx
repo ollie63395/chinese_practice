@@ -6,14 +6,14 @@ import { ImagePicker } from '../components/ImagePicker';
 import { PinyinInput } from '../components/PinyinInput';
 import { TagInput } from '../components/TagInput';
 import { buttonClass, EmptyState, Field, inputClass, MixedText, PageHeader, PageLoader, panelClass } from '../components/ui';
-import { db } from '../db/db';
+import { useAccount } from '../db/auth';
 import { useWords } from '../db/hooks';
+import { loadImage } from '../db/images';
 import type { Word } from '../db/types';
-import { deleteWord, saveWord } from '../db/words';
+import { deleteWord, fetchWord, saveWord } from '../db/words';
 import { cn } from '../lib/cn';
 import { useDocumentTitle, useGoBack } from '../lib/hooks';
 import { finalizeReading, hasDigit, hasHanzi, hasVietnameseLetters } from '../lib/pinyin';
-import { requestPersistentStorage } from '../lib/prefs';
 import { countTags } from '../lib/tags';
 
 interface FormState {
@@ -52,6 +52,7 @@ function WordForm({ id }: { id?: string }) {
   const goBack = useGoBack('/words');
   const toast = useToast();
   const confirm = useConfirm();
+  const me = useAccount().id;
   const words = useWords();
   const tagSuggestions = useMemo(() => countTags(words ?? []).map((t) => t.tag), [words]);
 
@@ -59,33 +60,38 @@ function WordForm({ id }: { id?: string }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'missing'>(isEdit ? 'loading' : 'ready');
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<unknown>();
   const wordInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
     void (async () => {
-      const word = await db.words.get(id);
-      const image = word?.imageId ? await db.images.get(word.imageId) : undefined;
-      if (cancelled) return;
-      if (!word) {
-        setStatus('missing');
-        return;
+      try {
+        const word = await fetchWord(me, id);
+        const image = word?.imagePath ? await loadImage(word.imagePath).catch(() => null) : null;
+        if (cancelled) return;
+        if (!word) {
+          setStatus('missing');
+          return;
+        }
+        setForm({
+          word: word.word,
+          reading: word.reading,
+          meaning: word.meaning,
+          tags: word.tags,
+          image,
+          imageChanged: false,
+        });
+        setStatus('ready');
+      } catch (err) {
+        if (!cancelled) setLoadError(err);
       }
-      setForm({
-        word: word.word,
-        reading: word.reading,
-        meaning: word.meaning,
-        tags: word.tags,
-        image: image?.blob ?? null,
-        imageChanged: false,
-      });
-      setStatus('ready');
     })();
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, me]);
 
   const setField = (field: RequiredField, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -123,7 +129,6 @@ function WordForm({ id }: { id?: string }) {
     setSaving(true);
     try {
       await saveWord({ word, reading, meaning, tags: form.tags, image: form.imageChanged ? form.image : undefined }, id);
-      void requestPersistentStorage();
       toast(isEdit ? `Đã lưu ${word}` : `Đã thêm ${word}`);
       if (addAnother) {
         // Keep the tags: words added in a row usually belong together.
@@ -150,11 +155,17 @@ function WordForm({ id }: { id?: string }) {
       danger: true,
     });
     if (!ok) return;
-    await deleteWord(id);
+    try {
+      await deleteWord(id);
+    } catch (err) {
+      toast(err instanceof Error ? `Không xóa được: ${err.message}` : 'Không xóa được từ này.');
+      return;
+    }
     toast(`Đã xóa ${trimmedWord}`);
     void navigate('/words', { replace: true });
   };
 
+  if (loadError) throw loadError;
   if (status === 'loading') return <PageLoader />;
   if (status === 'missing') {
     return (

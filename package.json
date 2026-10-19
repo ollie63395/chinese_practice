@@ -11,11 +11,14 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:db": "vitest run --config vitest.db.config.ts",
+    "db:start": "supabase start -x realtime,studio,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta",
+    "db:stop": "supabase stop",
+    "db:types": "supabase gen types typescript --local --schema public > src/db/database.types.ts"
   },
   "dependencies": {
-    "dexie": "^4.4.6",
-    "dexie-react-hooks": "^4.4.0",
+    "@supabase/supabase-js": "^2.118.0",
     "lucide-react": "^1.54.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -28,7 +31,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
-    "fake-indexeddb": "^6.2.5",
+    "supabase": "^2.121.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",

@@ -34,18 +34,3 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 export function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
-
-let persistRequested = false;
-
-/** Asks the browser not to evict our data under storage pressure. Safe to call repeatedly. */
-export async function requestPersistentStorage(): Promise<boolean> {
-  try {
-    if (!navigator.storage?.persist) return false;
-    if (await navigator.storage.persisted()) return true;
-    if (persistRequested) return false;
-    persistRequested = true;
-    return await navigator.storage.persist();
-  } catch {
-    return false;
-  }
-}

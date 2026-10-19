@@ -1,19 +1,11 @@
-import { Download, HardDrive, ShieldCheck, Upload } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Download, Upload } from 'lucide-react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useConfirm, useToast } from '../components/feedback';
 import { buttonClass, PageHeader, PageLoader, panelClass } from '../components/ui';
 import { usePractices, useWords } from '../db/hooks';
 import { backupFileName, createBackup, readBackup, restoreBackup } from '../lib/backup';
 import { cn } from '../lib/cn';
 import { useDocumentTitle } from '../lib/hooks';
-import { requestPersistentStorage } from '../lib/prefs';
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const format = (n: number, digits: number) => n.toLocaleString('vi-VN', { maximumFractionDigits: digits });
-  if (bytes < 1024 * 1024) return `${format(bytes / 1024, 0)} KB`;
-  return `${format(bytes / 1024 / 1024, 1)} MB`;
-}
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -34,20 +26,6 @@ export function BackupPage() {
   const confirm = useConfirm();
   const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<'export' | 'import' | null>(null);
-  const [storage, setStorage] = useState<{ usage?: number; persisted?: boolean }>({});
-
-  const refreshStorage = useCallback(async () => {
-    try {
-      const [estimate, persisted] = await Promise.all([navigator.storage?.estimate(), navigator.storage?.persisted()]);
-      setStorage({ usage: estimate?.usage, persisted });
-    } catch {
-      // Storage estimates aren't available everywhere.
-    }
-  }, []);
-
-  useEffect(() => {
-    void refreshStorage();
-  }, [refreshStorage, words, practices]);
 
   if (!words || !practices) return <PageLoader />;
 
@@ -73,7 +51,7 @@ export function BackupPage() {
           <>
             Bản sao lưu có <strong className="text-ink">{contents.words.length} từ</strong> và{' '}
             <strong className="text-ink">{contents.practices.length} buổi luyện tập</strong>. Chúng sẽ được thêm vào
-            dữ liệu hiện có; mục nào có ở cả hai nơi sẽ được thay bằng bản trong tệp sao lưu.
+            tài khoản của bạn; mục nào có ở cả hai nơi sẽ được thay bằng bản trong tệp sao lưu.
           </>
         ),
         confirmLabel: 'Khôi phục',
@@ -88,18 +66,12 @@ export function BackupPage() {
     }
   };
 
-  const keepData = async () => {
-    const granted = await requestPersistentStorage();
-    await refreshStorage();
-    toast(granted ? 'Trình duyệt sẽ giữ dữ liệu này' : 'Trình duyệt đã từ chối. Hãy sao lưu thường xuyên nhé.');
-  };
-
   return (
     <>
       <PageHeader
         zh="备份"
         title="Sao lưu & khôi phục"
-        description="Cíhuì lưu từ vựng, hình ảnh và lịch sử luyện tập ngay trong trình duyệt này, trên thiết bị này. Không có gì được tải lên mạng. Thỉnh thoảng hãy tải một bản sao lưu, và dùng nó để chuyển từ vựng sang thiết bị hoặc trình duyệt khác."
+        description="Từ vựng, hình ảnh và lịch sử luyện tập được lưu trong tài khoản của bạn, nên bạn dùng được trên mọi thiết bị. Bạn cũng có thể tải tất cả về thành một tệp, hoặc đưa một tệp sao lưu vào tài khoản: chẳng hạn dữ liệu từ phiên bản Cíhuì cũ chỉ lưu trong trình duyệt, hoặc danh sách từ giáo viên gửi cho bạn."
       />
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -114,7 +86,7 @@ export function BackupPage() {
 
         <Panel icon={<Upload />} title="Khôi phục từ bản sao lưu">
           <p className="text-sm text-muted">
-            Chọn tệp sao lưu của Cíhuì (.json). Các từ và buổi luyện tập trong đó sẽ được thêm vào dữ liệu ở đây.
+            Chọn tệp sao lưu của Cíhuì (.json). Các từ và buổi luyện tập trong đó sẽ được thêm vào tài khoản của bạn.
           </p>
           <input
             ref={fileInput}
@@ -132,28 +104,14 @@ export function BackupPage() {
             <Upload /> {busy === 'import' ? 'Đang khôi phục…' : 'Chọn tệp sao lưu'}
           </button>
         </Panel>
-
-        <Panel icon={storage.persisted ? <ShieldCheck /> : <HardDrive />} title="Bộ nhớ trên thiết bị này" className="md:col-span-2">
-          <p className="text-sm text-muted">
-            {storage.usage !== undefined && <>Cíhuì đang dùng khoảng {formatBytes(storage.usage)}. </>}
-            {storage.persisted
-              ? 'Trình duyệt đã đồng ý giữ dữ liệu này, kể cả khi thiết bị sắp hết dung lượng.'
-              : 'Trình duyệt có thể xóa dữ liệu này khi thiết bị sắp hết dung lượng, hoặc khi bạn xóa dữ liệu duyệt web. Bản sao lưu giúp dữ liệu luôn an toàn.'}
-          </p>
-          {storage.persisted === false && (
-            <button type="button" onClick={() => void keepData()} className={buttonClass('secondary', 'md', 'mt-4')}>
-              <ShieldCheck /> Yêu cầu trình duyệt giữ dữ liệu của tôi
-            </button>
-          )}
-        </Panel>
       </div>
     </>
   );
 }
 
-function Panel({ icon, title, className, children }: { icon: ReactNode; title: string; className?: string; children: ReactNode }) {
+function Panel({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
-    <section className={cn(panelClass, 'p-5 md:p-6', className)}>
+    <section className={cn(panelClass, 'p-5 md:p-6')}>
       <div className="mb-2 flex items-center gap-3">
         <span className="grid size-9 place-items-center rounded-xl bg-accent-soft text-accent-ink [&_svg]:size-[18px]">{icon}</span>
         <h2 className="font-semibold">{title}</h2>

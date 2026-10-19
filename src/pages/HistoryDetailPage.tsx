@@ -1,30 +1,32 @@
-import { useLiveQuery } from 'dexie-react-hooks';
 import { Mic, SearchX, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useConfirm, useToast } from '../components/feedback';
 import { PracticeWordList } from '../components/PracticeWordList';
 import { buttonClass, EmptyState, MixedText, PageHeader, PageLoader, panelClass } from '../components/ui';
-import { db } from '../db/db';
+import { useAccount } from '../db/auth';
+import { usePractice, useProfile, useWords } from '../db/hooks';
 import { deletePractice } from '../db/practices';
-import type { Word } from '../db/types';
 import { cn } from '../lib/cn';
 import { useDocumentTitle } from '../lib/hooks';
 import { formatClock, formatDay, formatTime } from '../lib/time';
 import type { ReplayState } from './speaking/SpeakingPage';
 
+/** One practice session: the signed-in account's own, or (for a teacher) a student's, read-only. */
 export function HistoryDetailPage() {
   useDocumentTitle('Buổi luyện tập');
-  const { id = '' } = useParams();
+  const { id = '', studentId } = useParams();
+  const me = useAccount().id;
+  const owner = studentId ?? me;
+  const readOnly = owner !== me;
+  const backTo = readOnly ? `/students/${owner}?tab=history` : '/history';
   const navigate = useNavigate();
   const confirm = useConfirm();
   const toast = useToast();
-  // `null` once loaded and not found; `undefined` while loading.
-  const log = useLiveQuery(async () => (await db.practices.get(id)) ?? null, [id]);
-  const current = useLiveQuery(
-    async () => (log ? (await db.words.bulkGet(log.words.map((w) => w.id))).filter((w): w is Word => !!w) : []),
-    [log],
-  );
+  const log = usePractice(owner, id);
+  // The words as they are now, for their pictures and for practising them again.
+  const words = useWords(owner);
+  const ownerProfile = useProfile(owner);
 
   if (log === undefined) return <PageLoader />;
   if (log === null) {
@@ -33,7 +35,7 @@ export function HistoryDetailPage() {
         icon={<SearchX />}
         title="Không tìm thấy buổi luyện tập"
         action={
-          <Link to="/history" className={buttonClass('secondary')}>
+          <Link to={backTo} className={buttonClass('secondary')}>
             Quay lại lịch sử
           </Link>
         }
@@ -43,11 +45,12 @@ export function HistoryDetailPage() {
     );
   }
 
-  const imageIds = new Map((current ?? []).flatMap((w) => (w.imageId ? [[w.id, w.imageId] as const] : [])));
+  const practisedIds = new Set(log.words.map((w) => w.id));
+  const stillThere = (words ?? []).filter((w) => practisedIds.has(w.id));
+  const imagePaths = new Map(stillThere.flatMap((w) => (w.imagePath ? [[w.id, w.imagePath] as const] : [])));
   const usedCount = log.words.filter((w) => w.used).length;
 
   const practiceAgain = () => {
-    const stillThere = current ?? [];
     if (stillThere.length === 0) {
       toast('Không còn từ nào trong số này ở kho từ vựng.');
       return;
@@ -70,7 +73,12 @@ export function HistoryDetailPage() {
       danger: true,
     });
     if (!ok) return;
-    await deletePractice(log.id);
+    try {
+      await deletePractice(log.id);
+    } catch (err) {
+      toast(err instanceof Error ? `Không xóa được: ${err.message}` : 'Không xóa được buổi luyện tập.');
+      return;
+    }
     toast('Đã xóa buổi luyện tập');
     void navigate('/history', { replace: true });
   };
@@ -78,9 +86,10 @@ export function HistoryDetailPage() {
   return (
     <>
       <PageHeader
-        back={{ to: '/history', label: 'Lịch sử' }}
+        back={{ to: backTo, label: 'Lịch sử' }}
         zh="练习记录"
         title={`${formatDay(log.startedAt)} lúc ${formatTime(log.startedAt)}`}
+        description={readOnly && ownerProfile ? `Buổi luyện nói của ${ownerProfile.displayName}.` : undefined}
       />
 
       <dl className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -97,7 +106,7 @@ export function HistoryDetailPage() {
         <h2 id="words-heading" className="mb-3 font-semibold">
           Các từ đã luyện
         </h2>
-        <PracticeWordList words={log.words} showUsed={usedCount > 0} imageIds={imageIds} />
+        <PracticeWordList words={log.words} showUsed={usedCount > 0} imagePaths={imagePaths} />
       </section>
 
       {log.notes && (
@@ -109,14 +118,16 @@ export function HistoryDetailPage() {
         </section>
       )}
 
-      <div className="mt-8 flex flex-wrap gap-3">
-        <button type="button" onClick={practiceAgain} className={buttonClass('primary', 'lg')}>
-          <Mic /> Luyện lại các từ này
-        </button>
-        <button type="button" onClick={() => void remove()} className={buttonClass('danger', 'lg')}>
-          <Trash2 /> Xóa buổi luyện tập
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="mt-8 flex flex-wrap gap-3">
+          <button type="button" onClick={practiceAgain} className={buttonClass('primary', 'lg')}>
+            <Mic /> Luyện lại các từ này
+          </button>
+          <button type="button" onClick={() => void remove()} className={buttonClass('danger', 'lg')}>
+            <Trash2 /> Xóa buổi luyện tập
+          </button>
+        </div>
+      )}
     </>
   );
 }

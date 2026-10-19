@@ -1,4 +1,4 @@
-import { ArrowLeft, Search, X } from 'lucide-react';
+import { ArrowLeft, CircleAlert, Search, X } from 'lucide-react';
 import { useRef, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { cn } from '../lib/cn';
@@ -241,7 +241,17 @@ export function Segmented<T extends string>({ label, value, options, onChange }:
   );
 }
 
-/** Shown while IndexedDB loads; it fades in late so quick loads don't flash. */
+/** A problem to fix before going on, e.g. a wrong password. */
+export function ErrorNotice({ children }: { children: ReactNode }) {
+  return (
+    <div role="alert" className="flex items-start gap-3 rounded-2xl bg-danger-soft px-4 py-3 text-sm text-danger">
+      <CircleAlert className="mt-0.5 size-4 shrink-0" />
+      <p>{children}</p>
+    </div>
+  );
+}
+
+/** Shown while data loads; it fades in late so quick loads don't flash. */
 export function PageLoader() {
   return (
     <div className="grid animate-fade-in-late place-items-center py-24 text-sm text-faint" role="status">

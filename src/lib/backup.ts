@@ -1,37 +1,60 @@
-import { db } from '../db/db';
-import type { PracticeLog, PracticeWord, StoredImage, Word } from '../db/types';
+import { listImages, loadImage, removeImages, uploadImage } from '../db/images';
+import { fetchPractices, toPracticeRow } from '../db/practices';
+import { changed } from '../db/store';
+import type { PracticeLog, PracticeWord, Word } from '../db/types';
+import { fetchWords } from '../db/words';
 import { isRecord, stringArray } from './prefs';
+import { check, myId, supabase } from './supabase';
 
 const APP_ID = 'cihui';
 const FORMAT_VERSION = 1;
+
+/** A word as written in a backup file: its picture is named by id, without the account's folder. */
+export type BackupWord = Omit<Word, 'imagePath'> & { imageId?: string };
 
 interface BackupFile {
   app: typeof APP_ID;
   version: number;
   exportedAt: string;
-  words: Word[];
+  words: BackupWord[];
   images: { id: string; type: string; data: string }[];
   practices: PracticeLog[];
 }
 
 export interface BackupContents {
-  words: Word[];
-  images: StoredImage[];
+  words: BackupWord[];
+  images: { id: string; blob: Blob }[];
   practices: PracticeLog[];
 }
 
+/** Picture ids become part of a storage path, so only plain ones are accepted. */
+const IMAGE_ID = /^[\w-]{1,100}$/;
+
+const imageIdOf = (path: string) => path.slice(path.lastIndexOf('/') + 1);
+
+/** Everything in the signed-in account, pictures included, as one file. */
 export async function createBackup(): Promise<Blob> {
-  const [words, images, practices] = await db.transaction('r', db.words, db.images, db.practices, () =>
-    Promise.all([db.words.toArray(), db.images.toArray(), db.practices.toArray()]),
+  const owner = await myId();
+  const [words, practices] = await Promise.all([fetchWords(owner), fetchPractices(owner)]);
+  const images = await Promise.all(
+    words.flatMap((word) =>
+      word.imagePath
+        ? [
+            loadImage(word.imagePath).then(async (blob) => ({
+              id: imageIdOf(word.imagePath!),
+              type: blob.type,
+              data: await blobToBase64(blob),
+            })),
+          ]
+        : [],
+    ),
   );
   const file: BackupFile = {
     app: APP_ID,
     version: FORMAT_VERSION,
     exportedAt: new Date().toISOString(),
-    words,
-    images: await Promise.all(
-      images.map(async (img) => ({ id: img.id, type: img.blob.type, data: await blobToBase64(img.blob) })),
-    ),
+    words: words.map(({ imagePath, ...word }) => ({ ...word, ...(imagePath ? { imageId: imageIdOf(imagePath) } : {}) })),
+    images,
     practices,
   };
   return new Blob([JSON.stringify(file)], { type: 'application/json' });
@@ -60,8 +83,12 @@ export function parseBackup(json: unknown): BackupContents {
   if (typeof json.version === 'number' && json.version > FORMAT_VERSION) {
     throw new Error('Bản sao lưu này được tạo bởi phiên bản Cíhuì mới hơn.');
   }
-  const images = (Array.isArray(json.images) ? json.images : []).flatMap((raw): StoredImage[] =>
-    isRecord(raw) && typeof raw.id === 'string' && typeof raw.data === 'string' && typeof raw.type === 'string'
+  const images = (Array.isArray(json.images) ? json.images : []).flatMap((raw) =>
+    isRecord(raw) &&
+    typeof raw.id === 'string' &&
+    IMAGE_ID.test(raw.id) &&
+    typeof raw.data === 'string' &&
+    typeof raw.type === 'string'
       ? [{ id: raw.id, blob: base64ToBlob(raw.data, raw.type) }]
       : [],
   );
@@ -83,27 +110,49 @@ export function parseBackup(json: unknown): BackupContents {
 }
 
 /**
- * Merges a backup into the database: everything in the file is added,
+ * Merges a backup into the signed-in account: everything in the file is added,
  * and anything with the same id is replaced by the version from the file.
  */
 export async function restoreBackup(contents: BackupContents): Promise<void> {
-  await db.transaction('rw', db.words, db.images, db.practices, async () => {
-    await db.images.bulkPut(contents.images);
-    await db.words.bulkPut(contents.words);
-    await db.practices.bulkPut(contents.practices);
-    // A restored word may point at an older image than the one stored here; drop the orphans.
-    const inUse = new Set((await db.words.toArray()).map((w) => w.imageId));
-    const imageIds = await db.images.toCollection().primaryKeys();
-    await db.images.bulkDelete(imageIds.filter((id) => !inUse.has(id)));
-  });
+  const owner = await myId();
+  // Pictures first, so no word ever points at a picture that isn't there.
+  for (let i = 0; i < contents.images.length; i += 4) {
+    await Promise.all(contents.images.slice(i, i + 4).map((img) => uploadImage(owner, img.blob, img.id)));
+  }
+  const wordRows = contents.words.map((word) => ({
+    owner_id: owner,
+    id: word.id,
+    word: word.word,
+    reading: word.reading,
+    meaning: word.meaning,
+    tags: word.tags,
+    image_path: word.imageId ? `${owner}/${word.imageId}` : null,
+    created_at: new Date(word.createdAt).toISOString(),
+    updated_at: new Date(word.updatedAt).toISOString(),
+  }));
+  const practiceRows = contents.practices.map((log) => toPracticeRow(log, owner));
+  try {
+    for (let i = 0; i < wordRows.length; i += 500) {
+      check(await supabase.from('words').upsert(wordRows.slice(i, i + 500), { onConflict: 'owner_id,id' }));
+    }
+    for (let i = 0; i < practiceRows.length; i += 500) {
+      check(await supabase.from('practices').upsert(practiceRows.slice(i, i + 500), { onConflict: 'owner_id,id' }));
+    }
+    // A restored word may point at an older picture than the one stored here; drop the orphans.
+    const inUse = new Set((await fetchWords(owner)).map((w) => w.imagePath));
+    await removeImages((await listImages(owner)).filter((path) => !inUse.has(path)));
+  } finally {
+    changed(owner);
+  }
 }
 
-function parseWord(raw: unknown): Word | null {
+function parseWord(raw: unknown): BackupWord | null {
   if (!isRecord(raw)) return null;
   const { id, word, reading, meaning } = raw;
   if (typeof id !== 'string' || typeof word !== 'string' || typeof reading !== 'string' || typeof meaning !== 'string') {
     return null;
   }
+  if (!id || id.length > 100 || !word || !reading || !meaning) return null;
   const now = Date.now();
   return {
     id,
@@ -112,15 +161,17 @@ function parseWord(raw: unknown): Word | null {
     meaning,
     tags: stringArray(raw.tags),
     ...(typeof raw.imageId === 'string' ? { imageId: raw.imageId } : {}),
-    createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
-    updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : now,
+    createdAt: validTime(raw.createdAt) ?? now,
+    updatedAt: validTime(raw.updatedAt) ?? now,
   };
 }
 
 function parsePractice(raw: unknown): PracticeLog | null {
-  if (!isRecord(raw) || typeof raw.id !== 'string' || typeof raw.startedAt !== 'number' || !Array.isArray(raw.words)) {
+  if (!isRecord(raw) || typeof raw.id !== 'string' || !raw.id || raw.id.length > 100 || !Array.isArray(raw.words)) {
     return null;
   }
+  const startedAt = validTime(raw.startedAt);
+  if (startedAt === undefined) return null;
   const words = raw.words.flatMap((w): PracticeWord[] =>
     isRecord(w) && typeof w.id === 'string' && typeof w.word === 'string'
       ? [
@@ -134,17 +185,22 @@ function parsePractice(raw: unknown): PracticeLog | null {
         ]
       : [],
   );
-  const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+  const seconds = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0);
   return {
     id: raw.id,
-    startedAt: raw.startedAt,
-    endedAt: num(raw.endedAt, raw.startedAt),
-    timeLimitSec: num(raw.timeLimitSec, 0),
-    spokenSec: num(raw.spokenSec, 0),
+    startedAt,
+    endedAt: validTime(raw.endedAt) ?? startedAt,
+    timeLimitSec: seconds(raw.timeLimitSec),
+    spokenSec: seconds(raw.spokenSec),
     endedEarly: raw.endedEarly === true,
     words,
     notes: typeof raw.notes === 'string' ? raw.notes : '',
   };
+}
+
+/** A timestamp that can be stored as a date (milliseconds since 1970). */
+function validTime(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && Math.abs(value) < 8.64e15 ? value : undefined;
 }
 
 export async function blobToBase64(blob: Blob): Promise<string> {

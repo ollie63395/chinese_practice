@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// The tests run against local Supabase (`npm run db:start`), set up in .env.local like the dev server.
+process.loadEnvFile('.env.local');
+
 const PORT = 5199;
 
 export default defineConfig({

@@ -8,11 +8,13 @@ export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
   build: {
-    // The whole app is one ~165 KB (gzipped) bundle, cached after the first visit.
+    // The whole app is one ~195 KB (gzipped) bundle, cached after the first visit.
     // Splitting it would only add loading states, so don't warn about its size.
     chunkSizeWarningLimit: 800,
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
+    // These need local Supabase: `npm run test:db`.
+    exclude: ['src/**/*.db.test.ts'],
   },
 });

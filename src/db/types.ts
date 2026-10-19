@@ -7,15 +7,10 @@ export interface Word {
   /** In Vietnamese, e.g. trường học */
   meaning: string;
   tags: string[];
-  /** Points at a record in the `images` table; a word has at most one image. */
-  imageId?: string;
+  /** Where its picture is stored (`<owner id>/<picture id>`); a word has at most one picture. */
+  imagePath?: string;
   createdAt: number;
   updatedAt: number;
-}
-
-export interface StoredImage {
-  id: string;
-  blob: Blob;
 }
 
 /** A copy of a word as it was when practised, so history survives later edits or deletes. */
@@ -39,4 +34,24 @@ export interface PracticeLog {
   endedEarly: boolean;
   words: PracticeWord[];
   notes: string;
+}
+
+export type Role = 'student' | 'teacher';
+
+export interface Profile {
+  id: string;
+  displayName: string;
+  /** Set for accounts that sign in with a username rather than an email address. */
+  username: string | null;
+  email: string | null;
+  role: Role;
+  createdAt: number;
+}
+
+/** An account with its totals, for the teacher's list of students. */
+export interface AccountSummary extends Profile {
+  wordCount: number;
+  practiceCount: number;
+  spokenSec: number;
+  lastPracticeAt: number | null;
 }
