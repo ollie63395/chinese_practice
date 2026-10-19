@@ -83,7 +83,7 @@ The site is static (Vercel, Netlify, GitHub Pages…); the accounts and data liv
 
 1. **Before switching over**, if anyone used the earlier, browser-only version: open it and download a backup from **Sao lưu & khôi phục**. After signing in to the new version, restore that file into the account.
 2. **Create a Supabase project** at supabase.com (Singapore is the closest region to Vietnam).
-3. **Create the tables and access rules**: either run `npx supabase login`, `npx supabase link --project-ref <your project ref>` and `npx supabase db push`, or paste `supabase/migrations/20261019000000_accounts.sql` into the dashboard's SQL Editor and run it.
+3. **Create the tables and access rules**: either run `npx supabase login`, `npx supabase link --project-ref <your project ref>` and `npx supabase db push`, or paste each file in `supabase/migrations/` into the dashboard's SQL Editor and run them in order (oldest first).
 4. **Authentication settings** in the dashboard:
    - *Sign In / Providers → Email*: turn **Confirm email off**. Username accounts have no real address to confirm (they're stored as `<username>@users.cihui.invalid`).
    - *URL Configuration*: set the Site URL to your site's address, and add `https://<your site>/**` to the Redirect URLs, so password-reset links can come back to the app.
