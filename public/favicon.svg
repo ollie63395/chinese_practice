@@ -1,5 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect x="4" y="4" width="56" height="56" rx="14" fill="#c73e2a"/>
-  <text x="32" y="45" font-size="34" font-weight="700" text-anchor="middle" fill="#fff"
-    font-family="'Kaiti SC','STKaiti','KaiTi','Songti SC','Noto Serif SC','SimSun',serif">词</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <!-- The Qinglan Chinese Class mark on its cream tile. Also the header icon (src/components/Layout.tsx). -->
+  <rect width="400" height="400" rx="100" fill="#fffef8"/>
+  <g transform="translate(27.25 30)">
+    <path d="M172.75 0 102.75 70A99 99 0 0 0 242.75 70Z" fill="#b5452c"/>
+    <path d="M345.5 128A212 212 0 0 0 133.5 340H227.5A118 118 0 0 1 345.5 222Z" fill="#41a797"/>
+    <path d="M0 128A212 212 0 0 1 212 340H118A118 118 0 0 0 0 222Z" fill="#1e4e73"/>
+  </g>
 </svg>
