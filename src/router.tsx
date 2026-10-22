@@ -12,6 +12,7 @@ import { SpeakingPage } from './pages/speaking/SpeakingPage';
 import { StudentPage } from './pages/StudentPage';
 import { StudentsPage } from './pages/StudentsPage';
 import { WordFormPage } from './pages/WordFormPage';
+import { WordImportPage } from './pages/WordImportPage';
 import { WordsPage } from './pages/WordsPage';
 
 // Hash URLs (#/words) work on any static host without server rewrite rules.
@@ -26,6 +27,7 @@ export function createAppRouter() {
         { index: true, element: <HomePage /> },
         { path: 'words', element: <WordsPage /> },
         { path: 'words/new', element: <WordFormPage /> },
+        { path: 'words/import', element: <WordImportPage /> },
         { path: 'words/:id', element: <WordFormPage /> },
         { path: 'flashcards', element: <FlashcardsSetupPage /> },
         { path: 'flashcards/review', element: <FlashcardsReviewPage /> },

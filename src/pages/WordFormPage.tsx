@@ -13,8 +13,8 @@ import type { Word } from '../db/types';
 import { deleteWord, fetchWord, saveWord } from '../db/words';
 import { cn } from '../lib/cn';
 import { useDocumentTitle, useGoBack } from '../lib/hooks';
-import { finalizeReading, hasDigit, hasHanzi, hasVietnameseLetters } from '../lib/pinyin';
 import { countTags } from '../lib/tags';
+import { checkWord, type WordField } from '../lib/wordRules';
 
 interface FormState {
   word: string;
@@ -27,8 +27,7 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { word: '', reading: '', meaning: '', tags: [], image: null, imageChanged: false };
 
-type RequiredField = 'word' | 'reading' | 'meaning';
-type Errors = Partial<Record<RequiredField, string>>;
+type Errors = Partial<Record<WordField, string>>;
 
 /** Pinyin shown as an example in the hints. */
 function Example({ children }: { children: string }) {
@@ -93,7 +92,7 @@ function WordForm({ id }: { id?: string }) {
     };
   }, [id, me]);
 
-  const setField = (field: RequiredField, value: string) => {
+  const setField = (field: WordField, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
     setErrors((e) => (e[field] ? { ...e, [field]: undefined } : e));
   };
@@ -105,20 +104,10 @@ function WordForm({ id }: { id?: string }) {
 
   const save = async (addAnother: boolean) => {
     if (saving) return;
-    const word = form.word.trim();
-    const meaning = form.meaning.trim();
-    const reading = finalizeReading(form.reading);
-
-    const nextErrors: Errors = {};
-    if (!word) nextErrors.word = 'Hãy nhập từ bằng chữ Hán.';
-    if (!reading) nextErrors.reading = 'Hãy nhập pinyin của từ.';
-    else if (hasHanzi(reading)) nextErrors.reading = 'Ô này chỉ nhận pinyin, không nhận chữ Hán.';
-    else if (hasDigit(reading)) {
-      nextErrors.reading = 'Còn số chưa chuyển thành dấu thanh. Hãy gõ số ngay sau âm tiết, ví dụ ni3 → nǐ.';
-    } else if (hasVietnameseLetters(reading)) {
-      nextErrors.reading = 'Pinyin bị lẫn dấu tiếng Việt (như ẻ, đ). Hãy tắt bộ gõ tiếng Việt (Telex/VNI) rồi gõ lại.';
-    }
-    if (!meaning) nextErrors.meaning = 'Hãy nhập nghĩa của từ.';
+    const {
+      value: { word, reading, meaning },
+      errors: nextErrors,
+    } = checkWord(form);
     setErrors(nextErrors);
     const firstInvalid = (['word', 'reading', 'meaning'] as const).find((field) => nextErrors[field]);
     if (firstInvalid) {

@@ -10,12 +10,13 @@ Kho từ vựng tiếng Trung (tiếng Phổ thông) dành cho người Việt. 
 - **Thẻ ghi nhớ.** Ôn mọi từ, hoặc chỉ những nhãn bạn chọn. Cho mặt trước hiện tiếng Trung hoặc nghĩa, đánh dấu từng thẻ *Đã thuộc* hay *Chưa thuộc*, rồi ôn lại những thẻ chưa thuộc.
 - **Luyện nói.** Chọn số từ và thời gian nói. Các từ được bốc ngẫu nhiên (từ cả kho hoặc theo nhãn); bạn có thể bỏ, đổi hoặc thêm từ, rồi chuẩn bị bao lâu tùy thích, kèm ghi chú. Đồng hồ chỉ chạy khi bạn bắt đầu nói. Trong lúc nói, nhấn vào từng từ sau khi đã dùng. Hết giờ sẽ có tiếng chuông.
 - **Lịch sử luyện tập.** Mỗi buổi luyện nói được ghi lại cùng các từ, thời gian và ghi chú. Mở một buổi để xem lại, luyện lại các từ đó, hoặc xóa đi.
-- **Sao lưu & khôi phục.** Tải mọi thứ (kể cả hình ảnh) về thành một tệp, hoặc đưa một tệp sao lưu vào tài khoản: dữ liệu từ phiên bản cũ chỉ lưu trong trình duyệt, hay một danh sách từ giáo viên gửi cho cả lớp.
+- **Nhập & xuất bằng bảng tính.** Thêm cả danh sách từ một lúc: tải bảng mẫu Excel hoặc CSV về điền, nhờ AI (ChatGPT, Claude, Gemini…) soạn bằng câu lệnh có sẵn, hoặc dán các dòng chép từ Excel hay Google Sheets. Trước khi lưu, bạn xem được từng dòng là từ mới, từ đã có hay dòng có lỗi; lưu xong vẫn hoàn tác được. Danh sách từ cũng xuất được ra Excel hoặc CSV, và giáo viên có thể soạn một bảng từ rồi gửi cho cả lớp.
+- **Sao lưu & khôi phục.** Tải mọi thứ (kể cả hình ảnh và lịch sử luyện tập) về thành một tệp, hoặc đưa một tệp sao lưu vào tài khoản, chẳng hạn dữ liệu từ phiên bản cũ chỉ lưu trong trình duyệt. Cả hai nằm ở mục **Nhập, xuất & sao lưu**.
 - Dùng được trên điện thoại và máy tính, ở chế độ sáng và tối. Từ vựng được đọc to bằng giọng tiếng Phổ thông nếu trình duyệt có sẵn.
 
 ## Dữ liệu của bạn
 
-Mọi thứ được lưu trong tài khoản của bạn trên máy chủ (Supabase), và cần có mạng để dùng. Bạn vẫn đăng nhập sau khi tải lại trang hoặc khởi động lại máy; trên thiết bị khác, chỉ cần đăng nhập lại.
+Mọi thứ được lưu trong tài khoản của bạn trên máy chủ, và cần có mạng để dùng. Dữ liệu của mọi tài khoản (từ vựng, hình ảnh, lịch sử luyện tập) được tự động sao lưu mỗi đêm, nên nếu máy chủ gặp sự cố, dữ liệu vẫn khôi phục được. Bạn không cần làm gì cả. Bạn vẫn đăng nhập sau khi tải lại trang hoặc khởi động lại máy; trên thiết bị khác, chỉ cần đăng nhập lại.
 
 Học viên chỉ thấy dữ liệu của chính mình. Giáo viên xem được dữ liệu của mọi học viên nhưng không sửa hay xóa được. Quy tắc này do chính cơ sở dữ liệu áp dụng, không chỉ do giao diện.
 
@@ -104,13 +105,16 @@ Fonts load from Google Fonts (Be Vietnam Pro, Noto Sans SC) and jsDelivr (LXGW W
 ```
 src/
   db/           Supabase data access (words, practice logs, pictures, profiles), the session and a small query cache
-  lib/          Pinyin conversion, search, tags, backups, images, sound, speech and other helpers
+  lib/          Pinyin conversion, search, tags, backups, spreadsheets (CSV and Excel), images, sound, speech and other helpers
   components/   Shared UI: layout, form fields, dialogs, the image and tag pickers, word and history lists
   pages/        One file per screen; pages/speaking/ holds the steps of a speaking practice
 supabase/
   migrations/   The database schema and its access rules
   tests/        Tests of those access rules
 e2e/            Playwright browser tests
+.github/
+  workflows/    The nightly backup of everyone's data (setup notes at the top of backup.yml)
+scripts/        restore-backup.sh: puts a nightly backup into a new project
 ```
 
 Built with React 19, TypeScript, Vite, Tailwind CSS 4, React Router and Supabase.

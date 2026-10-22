@@ -1,0 +1,90 @@
+# Every night, a copy of everyone's data: all accounts, words, practice history and pictures.
+# It's encrypted (anyone signed in to GitHub can download a public repository's artifacts) and
+# kept for 30 days under each run's Artifacts. No step may print any of the data. If the
+# database is ever lost or broken, scripts/restore-backup.sh puts a copy into a new project.
+# Before changing the database, run this by hand (Actions → Backup → Run workflow).
+#
+# One-time setup, in GitHub: Settings → Secrets and variables → Actions → New repository secret.
+#   SUPABASE_DB_URL                 Supabase → Connect → Session pooler, password filled in
+#   SUPABASE_S3_ENDPOINT            Supabase → Project Settings → Storage → S3 Connection
+#   SUPABASE_S3_REGION              the same page
+#   SUPABASE_S3_ACCESS_KEY_ID       the same page → New access key
+#   SUPABASE_S3_SECRET_ACCESS_KEY   (given with the key)
+#   BACKUP_PASSPHRASE               a long passphrase you make up; keep a copy outside GitHub,
+#                                   since without it the backups can't be opened
+# Then run it once by hand to check it works. GitHub pauses the nightly schedule after 60 days
+# without a commit (it emails first); Actions → Backup → Enable workflow turns it back on.
+name: Backup
+
+on:
+  schedule:
+    - cron: '0 19 * * *' # 02:00 in Vietnam
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_S3_ENDPOINT: ${{ secrets.SUPABASE_S3_ENDPOINT }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.SUPABASE_S3_REGION }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Check the secrets are set
+        env:
+          SUPABASE_S3_REGION: ${{ secrets.SUPABASE_S3_REGION }}
+          SUPABASE_S3_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+          SUPABASE_S3_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+        run: |
+          missing=0
+          for name in SUPABASE_DB_URL SUPABASE_S3_ENDPOINT SUPABASE_S3_REGION SUPABASE_S3_ACCESS_KEY_ID SUPABASE_S3_SECRET_ACCESS_KEY BACKUP_PASSPHRASE; do
+            if [ -z "${!name}" ]; then echo "::error::The $name secret is not set (see the top of .github/workflows/backup.yml)."; missing=1; fi
+          done
+          # A short passphrase would make the public artifact easy to open.
+          if [ -n "$BACKUP_PASSPHRASE" ] && [ "${#BACKUP_PASSPHRASE}" -lt 20 ]; then
+            echo "::error::BACKUP_PASSPHRASE needs at least 20 characters."; missing=1
+          fi
+          exit $missing
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+
+      - name: Dump the database
+        run: |
+          mkdir -p backup
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/roles.sql --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
+          # The vector-bucket tables can't be written back by the postgres role, and the app doesn't use them.
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/data.sql --use-copy --data-only \
+            -x storage.buckets_vectors -x storage.vector_indexes
+
+      - name: Copy the pictures
+        run: aws s3 sync s3://word-images backup/storage/word-images --endpoint-url "$SUPABASE_S3_ENDPOINT" --only-show-errors
+
+      - name: Encrypt
+        run: |
+          name="qinglan-backup-$(date -u +%Y-%m-%d)"
+          tar -czf - -C backup . \
+            | gpg --batch --yes --symmetric --cipher-algo AES256 --pinentry-mode loopback --passphrase-fd 3 \
+                -o "$name.tar.gz.gpg" 3<<<"$BACKUP_PASSPHRASE"
+          rm -rf backup
+          echo "BACKUP_NAME=$name" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BACKUP_NAME }}
+          path: ${{ env.BACKUP_NAME }}.tar.gz.gpg
+          retention-days: 30
+          if-no-files-found: error
+          # Already compressed and encrypted.
+          compression-level: 0

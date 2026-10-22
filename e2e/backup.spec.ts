@@ -36,7 +36,7 @@ test('backs everything up and restores it into another account', async ({ page, 
   await signUp(page);
   await addCatWithPicture(page);
 
-  await page.getByRole('link', { name: 'Sao lưu & khôi phục' }).click();
+  await page.getByRole('link', { name: 'Nhập, xuất & sao lưu' }).click();
   const downloading = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Tải bản sao lưu' }).click();
   const download = await downloading;

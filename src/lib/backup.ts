@@ -3,6 +3,7 @@ import { fetchPractices, toPracticeRow } from '../db/practices';
 import { changed } from '../db/store';
 import type { PracticeLog, PracticeWord, Word } from '../db/types';
 import { fetchWords } from '../db/words';
+import { datedFileName } from './download';
 import { isRecord, stringArray } from './prefs';
 import { check, myId, supabase } from './supabase';
 
@@ -61,8 +62,7 @@ export async function createBackup(): Promise<Blob> {
 }
 
 export function backupFileName(date = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `qinglan-chinese-backup-${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}.json`;
+  return datedFileName('backup', 'json', date);
 }
 
 /** Reads and validates a backup file. Entries that don't look right are skipped. */

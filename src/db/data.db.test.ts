@@ -4,7 +4,7 @@ import { createBackup, parseBackup, readBackup, restoreBackup } from '../lib/bac
 import { supabase } from '../lib/supabase';
 import { listImages, loadImage } from './images';
 import { addPractice, fetchPractices } from './practices';
-import { deleteWord, fetchWord, fetchWords, saveWord } from './words';
+import { deleteWord, fetchWord, fetchWords, importWords, saveWord, undoImport } from './words';
 
 const png = (label: string) => new Blob([label], { type: 'image/png' });
 const draft = { word: '猫', reading: 'māo', meaning: 'mèo', tags: ['động vật'] };
@@ -64,6 +64,41 @@ describe('deleteWord', () => {
     await deleteWord(word.id);
     expect(await fetchWord(me, word.id)).toBeNull();
     expect(await listImages(me)).not.toContain(word.imagePath);
+  });
+});
+
+describe('importWords', () => {
+  it('adds words in the spreadsheet’s order, changes existing ones, and can be undone', async () => {
+    const existing = await saveWord({ ...draft, word: '鱼', reading: 'yú', meaning: 'cá', tags: ['động vật'] });
+    const before = (await fetchWords(me)).length;
+
+    const receipt = await importWords({
+      add: [
+        { word: '一', reading: 'yī', meaning: 'một', tags: ['số'] },
+        { word: '二', reading: 'èr', meaning: 'hai', tags: ['số'] },
+        { word: '三', reading: 'sān', meaning: 'ba', tags: [] },
+      ],
+      update: [{ previous: existing, meaning: 'con cá', tags: ['động vật', 'HSK 1'] }],
+    });
+
+    const words = await fetchWords(me);
+    expect(words).toHaveLength(before + 3);
+    // Newest first, so the first row of the spreadsheet tops the list.
+    expect(words.slice(0, 3).map((w) => w.word)).toEqual(['一', '二', '三']);
+    expect(receipt.addedIds).toHaveLength(3);
+    expect(await fetchWord(me, existing.id)).toMatchObject({ meaning: 'con cá', tags: ['động vật', 'HSK 1'], createdAt: existing.createdAt });
+
+    await undoImport(receipt);
+    expect(await fetchWords(me)).toHaveLength(before);
+    expect(await fetchWord(me, existing.id)).toEqual(existing);
+  });
+
+  it('undo also removes pictures added to imported words since', async () => {
+    const { addedIds } = await importWords({ add: [{ word: '马', reading: 'mǎ', meaning: 'ngựa', tags: [] }], update: [] });
+    const withPicture = await saveWord({ word: '马', reading: 'mǎ', meaning: 'ngựa', tags: [], image: png('horse') }, addedIds[0]);
+    await undoImport({ addedIds, previous: [] });
+    expect(await fetchWord(me, addedIds[0])).toBeNull();
+    expect(await listImages(me)).not.toContain(withPicture.imagePath);
   });
 });
 

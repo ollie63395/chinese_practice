@@ -1,5 +1,5 @@
 import { ArrowLeft, CircleAlert, Search, X } from 'lucide-react';
-import { useRef, type ReactNode } from 'react';
+import { useRef, type HTMLAttributes, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { cn } from '../lib/cn';
 
@@ -53,6 +53,24 @@ export const inputClass = cn(fieldClass, 'w-full');
 export const selectClass = cn(fieldClass, 'cursor-pointer pr-9');
 
 export const panelClass = 'rounded-3xl border border-line bg-card shadow-xs';
+
+interface IconPanelProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
+  icon: ReactNode;
+  title: ReactNode;
+}
+
+/** A panel headed by an icon and a title, e.g. one of several ways to do something. */
+export function IconPanel({ icon, title, children, className, ...props }: IconPanelProps) {
+  return (
+    <section {...props} className={cn(panelClass, 'p-5 md:p-6', className)}>
+      <div className="mb-2 flex items-center gap-3">
+        <span className="grid size-9 place-items-center rounded-xl bg-accent-soft text-accent-ink [&_svg]:size-[18px]">{icon}</span>
+        <h2 className="font-semibold">{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
 
 interface SearchInputProps {
   value: string;

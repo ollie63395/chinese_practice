@@ -7,6 +7,7 @@ import { cn } from '../lib/cn';
 import { isConfigured, takePasswordResetPending } from '../lib/supabase';
 import { SetPasswordScreen } from '../pages/AccountPage';
 import { AuthPage } from '../pages/AuthPage';
+import { BACKUP_TITLE } from '../pages/BackupPage';
 import { ConfirmProvider, ToastProvider } from './feedback';
 import { buttonClass, EmptyState, PageLoader } from './ui';
 
@@ -172,8 +173,8 @@ function AppFrame({ account }: { account: Account }) {
             )}
             <Link
               to="/backup"
-              title="Sao lưu & khôi phục"
-              aria-label="Sao lưu & khôi phục"
+              title={BACKUP_TITLE}
+              aria-label={BACKUP_TITLE}
               aria-current={pathname === '/backup' ? 'page' : undefined}
               className={buttonClass('ghost', 'icon')}
             >

@@ -8,8 +8,9 @@ export default defineConfig({
   base: './',
   plugins: [react(), tailwindcss()],
   build: {
-    // The whole app is one ~195 KB (gzipped) bundle, cached after the first visit.
-    // Splitting it would only add loading states, so don't warn about its size.
+    // The app is one ~200 KB (gzipped) bundle, cached after the first visit; only the Excel
+    // reader and writer load on demand. Splitting further would only add loading states,
+    // so don't warn about its size.
     chunkSizeWarningLimit: 800,
   },
   test: {

@@ -45,3 +45,10 @@ export function formatDay(timestamp: number, now = Date.now()): string {
   if (daysAgo === 1) return 'Hôm qua';
   return dayFormat.format(timestamp);
 }
+
+/** A date as YYYY-MM-DD, in local time. */
+export function isoDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}

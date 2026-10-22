@@ -1,4 +1,4 @@
-import { BookOpen, Plus } from 'lucide-react';
+import { BookOpen, FileSpreadsheet, Plus } from 'lucide-react';
 import { Link } from 'react-router';
 import { buttonClass, EmptyState, PageHeader, PageLoader } from '../components/ui';
 import { WordBrowser } from '../components/WordBrowser';
@@ -12,18 +12,24 @@ export function WordsPage() {
 
   if (!words) return <PageLoader />;
 
-  const addButton = (
-    <Link to="/words/new" className={buttonClass('primary')}>
-      <Plus /> Thêm từ
-    </Link>
+  const addButtons = (
+    <>
+      <Link to="/words/import" className={buttonClass('secondary')}>
+        <FileSpreadsheet /> Nhập từ hàng loạt
+      </Link>
+      <Link to="/words/new" className={buttonClass('primary')}>
+        <Plus /> Thêm từ
+      </Link>
+    </>
   );
 
   if (words.length === 0) {
     return (
       <>
         <PageHeader zh="生词本" title="Từ vựng của bạn" />
-        <EmptyState icon={<BookOpen />} title="Kho từ vựng đang trống" action={addButton}>
-          Hãy thêm từ đầu tiên bạn học hôm nay. Sau đó bạn có thể ôn nó bằng thẻ ghi nhớ và dùng nó khi luyện nói.
+        <EmptyState icon={<BookOpen />} title="Kho từ vựng đang trống" action={addButtons}>
+          Hãy thêm từ đầu tiên bạn học hôm nay, hoặc nhập cả danh sách từ Excel, Google Sheets hay câu trả lời của AI. Sau đó bạn
+          có thể ôn chúng bằng thẻ ghi nhớ và dùng chúng khi luyện nói.
         </EmptyState>
       </>
     );
@@ -35,7 +41,7 @@ export function WordsPage() {
         zh="生词本"
         title="Từ vựng của bạn"
         description={`Kho của bạn có ${words.length} từ${tags.length ? `, gắn ${tags.length} nhãn` : ''}.`}
-        actions={addButton}
+        actions={addButtons}
       />
       <WordBrowser words={words} />
     </>
