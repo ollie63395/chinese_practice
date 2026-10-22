@@ -85,6 +85,8 @@ export function invalidate(prefix = ''): void {
 export function changed(ownerId: string): void {
   invalidate(`${ownerId}/`);
   invalidate('accounts');
+  // A saved or deleted session may change how far someone is with an assignment.
+  invalidate('assignment');
 }
 
 /** Forgets everything, e.g. on signing out, so the next account never sees the last one's data. */

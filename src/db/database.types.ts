@@ -5,8 +5,105 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      assignment_students: {
+        Row: {
+          assigned_at: string;
+          assignment_id: string;
+          student_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          assigned_at?: string;
+          assignment_id: string;
+          student_id: string;
+        };
+        Update: {
+          assigned_at?: string;
+          assignment_id?: string;
+          student_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "assignment_students_assignment_id_fkey";
+            columns: ["assignment_id"];
+            isOneToOne: false;
+            referencedRelation: "assignments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "assignment_students_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "account_summaries";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "assignment_students_student_id_fkey";
+            columns: ["student_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      assignments: {
+        Row: {
+          created_at: string;
+          due_on: string | null;
+          id: string;
+          instructions: string;
+          teacher_id: string;
+          time_limit_sec: number;
+          title: string;
+          updated_at: string;
+          word_count: number;
+          words: NonNullable<Json>;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          due_on?: string | null;
+          id?: string;
+          instructions?: string;
+          teacher_id?: string;
+          time_limit_sec: number;
+          title: string;
+          updated_at?: string;
+          word_count: number;
+          words: NonNullable<Json>;
+        };
+        Update: {
+          created_at?: string;
+          due_on?: string | null;
+          id?: string;
+          instructions?: string;
+          teacher_id?: string;
+          time_limit_sec?: number;
+          title?: string;
+          updated_at?: string;
+          word_count?: number;
+          words?: NonNullable<Json>;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "assignments_teacher_id_fkey";
+            columns: ["teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "account_summaries";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "assignments_teacher_id_fkey";
+            columns: ["teacher_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       practices: {
         Row: {
+          assignment_id: string | null;
           ended_at: string;
           ended_early: boolean;
           id: string;
@@ -19,6 +116,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          assignment_id?: string | null;
           ended_at: string;
           ended_early?: boolean;
           id: string;
@@ -30,6 +128,7 @@ export type Database = {
           words?: NonNullable<Json>;
         };
         Update: {
+          assignment_id?: string | null;
           ended_at?: string;
           ended_early?: boolean;
           id?: string;
@@ -41,6 +140,13 @@ export type Database = {
           words?: NonNullable<Json>;
         };
         Relationships: [
+          {
+            foreignKeyName: "practices_assignment_id_fkey";
+            columns: ["assignment_id"];
+            isOneToOne: false;
+            referencedRelation: "assignments";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "practices_owner_id_fkey";
             columns: ["owner_id"];
@@ -181,6 +287,7 @@ export type Database = {
       };
     };
     Functions: {
+      is_assigned: { Args: { assignment: string }; Returns: boolean };
       is_teacher: { Args: Record<PropertyKey, never>; Returns: boolean };
       reset_student_password: {
         Args: { new_password: string; target: string };

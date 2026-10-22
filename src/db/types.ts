@@ -34,6 +34,42 @@ export interface PracticeLog {
   endedEarly: boolean;
   words: PracticeWord[];
   notes: string;
+  /** Set when the session was started from an assignment. */
+  assignmentId?: string;
+}
+
+/** A copy of one of the teacher's words, made when the assignment was saved. */
+export type AssignmentWord = Pick<PracticeWord, 'id' | 'word' | 'reading' | 'meaning'>;
+
+/** Speaking practice a teacher gives to some students. */
+export interface Assignment {
+  id: string;
+  teacherId: string;
+  title: string;
+  /** A topic or what to talk about; may be empty. */
+  instructions: string;
+  /** The word bank each attempt draws from. */
+  words: AssignmentWord[];
+  /** How many words each attempt draws. */
+  wordCount: number;
+  timeLimitSec: number;
+  /** To be done by the end of this day (YYYY-MM-DD), if set. */
+  dueOn: string | null;
+  /** Who it's given to. A student sees only themselves here. */
+  studentIds: string[];
+  createdAt: number;
+}
+
+/** A practice session started from an assignment: just what's needed to tell whether it counts. */
+export interface AssignmentAttempt {
+  /** The practice session's id. */
+  id: string;
+  ownerId: string;
+  assignmentId: string;
+  startedAt: number;
+  endedAt: number;
+  spokenSec: number;
+  timeLimitSec: number;
 }
 
 export type Role = 'student' | 'teacher';

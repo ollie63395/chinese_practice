@@ -11,6 +11,8 @@ import { matchesSearch } from '../../lib/search';
 import { formatClock } from '../../lib/time';
 
 interface PrepareStepProps {
+  /** For an assignment: words can be swapped for others from its bank, but the number of words and the time are fixed. */
+  locked?: boolean;
   chosen: Word[];
   onChosenChange: (words: Word[]) => void;
   /** Where random words come from (all words, or the chosen tags). */
@@ -27,7 +29,7 @@ interface PrepareStepProps {
 }
 
 export function PrepareStep(props: PrepareStepProps) {
-  const { chosen, onChosenChange, pool, allWords, notes, onNotesChange, timeLimitSec, onTimeLimitChange } = props;
+  const { locked, chosen, onChosenChange, pool, allWords, notes, onNotesChange, timeLimitSec, onTimeLimitChange } = props;
   const [picking, setPicking] = useState(false);
   const chosenIds = useMemo(() => new Set(chosen.map((w) => w.id)), [chosen]);
   const spare = pool.filter((w) => !chosenIds.has(w.id));
@@ -48,7 +50,7 @@ export function PrepareStep(props: PrepareStepProps) {
         onClick={props.onBack}
         className="mb-3 -ml-1 inline-flex cursor-pointer items-center gap-1 rounded-lg px-1 py-0.5 text-sm text-muted transition hover:text-ink"
       >
-        <ArrowLeft className="size-4" /> Cài đặt
+        <ArrowLeft className="size-4" /> {locked ? 'Bài tập' : 'Cài đặt'}
       </button>
       <PageHeader
         zh="准备"
@@ -74,29 +76,33 @@ export function PrepareStep(props: PrepareStepProps) {
                   word={word}
                   canSwap={spare.length > 0}
                   onSwap={() => swap(word.id)}
-                  onRemove={() => onChosenChange(chosen.filter((w) => w.id !== word.id))}
+                  onRemove={locked ? undefined : () => onChosenChange(chosen.filter((w) => w.id !== word.id))}
                 />
               ))}
             </ul>
           )}
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              aria-expanded={picking}
-              onClick={() => setPicking((p) => !p)}
-              className={buttonClass('secondary', 'sm')}
-            >
-              <Plus /> Thêm một từ
-            </button>
-            <button type="button" onClick={addRandom} disabled={spare.length === 0} className={buttonClass('secondary', 'sm')}>
-              <Dices /> Thêm một từ ngẫu nhiên
-            </button>
+            {!locked && (
+              <>
+                <button
+                  type="button"
+                  aria-expanded={picking}
+                  onClick={() => setPicking((p) => !p)}
+                  className={buttonClass('secondary', 'sm')}
+                >
+                  <Plus /> Thêm một từ
+                </button>
+                <button type="button" onClick={addRandom} disabled={spare.length === 0} className={buttonClass('secondary', 'sm')}>
+                  <Dices /> Thêm một từ ngẫu nhiên
+                </button>
+              </>
+            )}
             <button type="button" onClick={props.onRedraw} disabled={pool.length === 0} className={buttonClass('ghost', 'sm')}>
               <RefreshCw /> Bốc lại tất cả
             </button>
           </div>
-          {picking && (
+          {picking && !locked && (
             <WordPicker
               words={allWords}
               excludeIds={chosenIds}
@@ -121,10 +127,12 @@ export function PrepareStep(props: PrepareStepProps) {
             />
             <p className="mt-1 text-xs text-muted">Bạn sẽ thấy ghi chú này khi nói, và nó được lưu cùng buổi luyện.</p>
           </div>
-          <div>
-            <h2 className="mb-2 text-sm font-semibold">Thời gian nói</h2>
-            <DurationInput idPrefix="prep-time" seconds={timeLimitSec} onChange={onTimeLimitChange} />
-          </div>
+          {!locked && (
+            <div>
+              <h2 className="mb-2 text-sm font-semibold">Thời gian nói</h2>
+              <DurationInput idPrefix="prep-time" seconds={timeLimitSec} onChange={onTimeLimitChange} />
+            </div>
+          )}
           <button
             type="button"
             onClick={props.onStart}
@@ -143,7 +151,8 @@ interface PrepWordProps {
   word: Word;
   canSwap: boolean;
   onSwap: () => void;
-  onRemove: () => void;
+  /** Left out when words can't be removed (an assignment). */
+  onRemove?: () => void;
 }
 
 function PrepWord({ word, canSwap, onSwap, onRemove }: PrepWordProps) {
@@ -175,9 +184,11 @@ function PrepWord({ word, canSwap, onSwap, onRemove }: PrepWordProps) {
         >
           <Shuffle />
         </button>
-        <button type="button" title="Bỏ từ này" aria-label={`Bỏ ${word.word}`} onClick={onRemove} className={buttonClass('ghost', 'icon')}>
-          <X />
-        </button>
+        {onRemove && (
+          <button type="button" title="Bỏ từ này" aria-label={`Bỏ ${word.word}`} onClick={onRemove} className={buttonClass('ghost', 'icon')}>
+            <X />
+          </button>
+        )}
       </div>
     </li>
   );

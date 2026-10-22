@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { countTags } from '../lib/tags';
+import { fetchAssignmentAttempts, fetchAssignments } from './assignments';
 import { useAccount } from './auth';
 import { fetchPractice, fetchPractices } from './practices';
 import { fetchAccountSummaries, fetchProfile } from './profiles';
@@ -34,6 +35,16 @@ export function useProfile(id: string) {
 /** Every account with its totals. Only teachers see anyone but themselves. */
 export function useAccountSummaries() {
   return useQuery('accounts', fetchAccountSummaries);
+}
+
+/** Every assignment for a teacher; for a student, those given to them. Newest first. */
+export function useAssignments() {
+  return useQuery('assignments', fetchAssignments);
+}
+
+/** Sessions started from assignments: everyone's for a teacher, a student's own for them. */
+export function useAssignmentAttempts() {
+  return useQuery('assignment-attempts', fetchAssignmentAttempts);
 }
 
 export function useTagCounts(words: Word[] | undefined) {

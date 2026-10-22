@@ -191,6 +191,82 @@ describe('a teacher', () => {
   });
 });
 
+describe('assignments', () => {
+  const words = [{ id: 'w1', word: '猫', reading: 'māo', meaning: 'mèo' }];
+  const assignment = { title: 'Kể về con mèo', words, word_count: 1, time_limit_sec: 60 };
+  const session = (id: string, assignment_id: string) => ({
+    id,
+    started_at: new Date().toISOString(),
+    ended_at: new Date().toISOString(),
+    time_limit_sec: 60,
+    spoken_sec: 60,
+    words: [],
+    assignment_id,
+  });
+  let id: string;
+  let thay: Account; // another teacher
+
+  beforeAll(async () => {
+    thay = await signUp(`thay-${run}@example.com`, 'Thầy Minh');
+    const promoted = await admin.from('profiles').update({ role: 'teacher' }).eq('id', thay.id);
+    if (promoted.error) throw promoted.error;
+
+    const { data, error } = await co.client.from('assignments').insert(assignment).select('id, teacher_id').single();
+    if (error) throw error;
+    expect(data.teacher_id).toBe(co.id);
+    id = data.id;
+    const given = await co.client.from('assignment_students').insert({ assignment_id: id, student_id: an.id });
+    if (given.error) throw given.error;
+  });
+
+  it('are seen only by the students given them, who never see who else got them', async () => {
+    const forAn = await an.client.from('assignments').select('id, title, assignment_students(student_id)');
+    expect(forAn.data).toEqual([{ id, title: 'Kể về con mèo', assignment_students: [{ student_id: an.id }] }]);
+    expect((await binh.client.from('assignments').select('id')).data).toEqual([]);
+    expect((await binh.client.from('assignment_students').select('*')).data).toEqual([]);
+  });
+
+  it('can only be given out by teachers', async () => {
+    const make = await an.client.from('assignments').insert(assignment);
+    expect(make.error?.code).toBe('42501');
+    const join = await binh.client.from('assignment_students').insert({ assignment_id: id, student_id: binh.id });
+    expect(join.error?.code).toBe('42501');
+  });
+
+  it('are read by every teacher but changed only by the one who gave them', async () => {
+    expect((await thay.client.from('assignments').select('id').eq('id', id)).data).toEqual([{ id }]);
+    const rename = await thay.client.from('assignments').update({ title: 'Đổi tên' }).eq('id', id).select();
+    expect(rename.data).toEqual([]);
+    const remove = await thay.client.from('assignments').delete().eq('id', id).select();
+    expect(remove.data).toEqual([]);
+    const give = await thay.client.from('assignment_students').insert({ assignment_id: id, student_id: binh.id });
+    expect(give.error?.code).toBe('42501');
+
+    const handOver = await co.client.from('assignments').update({ teacher_id: thay.id }).eq('id', id);
+    expect(handOver.error?.code).toBe('42501');
+    const studentRename = await an.client.from('assignments').update({ title: 'hacked' }).eq('id', id).select();
+    expect(studentRename.data).toEqual([]);
+  });
+
+  it('take sessions only from the students given them, and the link can’t be changed afterwards', async () => {
+    expect((await an.client.from('practices').insert(session('p-assigned', id))).error).toBeNull();
+    const sneaky = await binh.client.from('practices').insert(session('p-sneaky', id));
+    expect(sneaky.error?.code).toBe('42501');
+    const unlink = await an.client.from('practices').update({ assignment_id: null }).eq('id', 'p-assigned');
+    expect(unlink.error?.code).toBe('42501');
+
+    const seen = await co.client.from('practices').select('id, owner_id').eq('assignment_id', id);
+    expect(seen.data).toEqual([{ id: 'p-assigned', owner_id: an.id }]);
+  });
+
+  it('when deleted, leave the sessions done for them in the students’ history', async () => {
+    expect((await co.client.from('assignments').delete().eq('id', id).select('id')).data).toEqual([{ id }]);
+    const { data } = await an.client.from('practices').select('assignment_id').eq('id', 'p-assigned').single();
+    expect(data).toEqual({ assignment_id: null });
+    expect((await an.client.from('assignments').select('id')).data).toEqual([]);
+  });
+});
+
 describe('pictures', () => {
   const png = new Blob([new Uint8Array([137, 80, 78, 71])], { type: 'image/png' });
 
@@ -214,7 +290,7 @@ describe('pictures', () => {
 describe('without signing in', () => {
   it('nothing can be read', async () => {
     const anonymous = newClient();
-    for (const table of ['words', 'practices', 'profiles', 'account_summaries']) {
+    for (const table of ['words', 'practices', 'profiles', 'account_summaries', 'assignments', 'assignment_students']) {
       const { data } = await anonymous.from(table).select('*');
       expect(data ?? []).toEqual([]);
     }

@@ -1,6 +1,9 @@
 import { createHashRouter } from 'react-router';
 import { Layout } from './components/Layout';
 import { AccountPage } from './pages/AccountPage';
+import { AssignmentFormPage } from './pages/AssignmentFormPage';
+import { AssignmentPage } from './pages/AssignmentPage';
+import { AssignmentsPage } from './pages/AssignmentsPage';
 import { BackupPage } from './pages/BackupPage';
 import { NotFoundPage, RouteErrorPage } from './pages/ErrorPages';
 import { FlashcardsReviewPage } from './pages/FlashcardsReviewPage';
@@ -34,6 +37,10 @@ export function createAppRouter() {
         { path: 'speaking', element: <SpeakingPage /> },
         { path: 'history', element: <HistoryPage /> },
         { path: 'history/:id', element: <HistoryDetailPage /> },
+        { path: 'assignments', element: <AssignmentsPage /> },
+        { path: 'assignments/new', element: <AssignmentFormPage /> },
+        { path: 'assignments/:id', element: <AssignmentPage /> },
+        { path: 'assignments/:id/edit', element: <AssignmentFormPage /> },
         { path: 'students', element: <StudentsPage /> },
         { path: 'students/:studentId', element: <StudentPage /> },
         { path: 'students/:studentId/history/:id', element: <HistoryDetailPage /> },

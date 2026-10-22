@@ -1,9 +1,12 @@
 import { ArrowRight, Layers, Mic, Plus, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
+import { AssignmentRow } from '../components/AssignmentList';
 import { buttonClass, PageLoader, panelClass } from '../components/ui';
 import { WordCard } from '../components/WordCard';
-import { usePractices, useTagCounts, useWords } from '../db/hooks';
+import { useAccount } from '../db/auth';
+import { useAssignmentAttempts, useAssignments, usePractices, useTagCounts, useWords } from '../db/hooks';
+import { sortForStudent, studentProgress } from '../lib/assignments';
 import { cn } from '../lib/cn';
 import { useDocumentTitle } from '../lib/hooks';
 import { formatDuration } from '../lib/time';
@@ -20,6 +23,7 @@ export function HomePage() {
 
   return (
     <div className="space-y-8 md:space-y-10">
+      <AssignmentsToDo />
       <section className={cn(panelClass, 'relative overflow-hidden p-6 md:p-10')}>
         <span
           aria-hidden
@@ -86,6 +90,41 @@ export function HomePage() {
         </section>
       )}
     </div>
+  );
+}
+
+const SHOWN_ASSIGNMENTS = 3;
+
+/** A student's unfinished assignments, soonest due first; nothing once they're all done. */
+function AssignmentsToDo() {
+  const me = useAccount().id;
+  const assignments = useAssignments();
+  const attempts = useAssignmentAttempts();
+  if (!assignments || !attempts) return null;
+
+  const toDo = sortForStudent(
+    assignments
+      .filter((a) => a.studentIds.includes(me))
+      .map((assignment) => ({ assignment, progress: studentProgress(assignment, attempts, me) })),
+  ).filter((i) => i.progress.status !== 'done');
+  if (toDo.length === 0) return null;
+
+  return (
+    <section aria-labelledby="assignments-heading">
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 id="assignments-heading" className="text-lg font-semibold">
+          Bài tập được giao <span className="font-normal text-muted">({toDo.length})</span>
+        </h2>
+        <Link to="/assignments" className="text-sm font-medium text-accent-ink hover:underline">
+          Xem tất cả
+        </Link>
+      </div>
+      <ul className="grid gap-2 md:grid-cols-2">
+        {toDo.slice(0, SHOWN_ASSIGNMENTS).map((item) => (
+          <AssignmentRow key={item.assignment.id} {...item} />
+        ))}
+      </ul>
+    </section>
   );
 }
 

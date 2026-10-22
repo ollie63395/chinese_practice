@@ -1,6 +1,7 @@
-import { BookOpen, History, KeyRound, ShieldCheck, ShieldMinus, SearchX } from 'lucide-react';
+import { BookOpen, ClipboardList, History, KeyRound, ShieldCheck, ShieldMinus, SearchX } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
+import { AssignmentRow } from '../components/AssignmentList';
 import { useConfirm, useToast } from '../components/feedback';
 import { PracticeHistory } from '../components/PracticeHistory';
 import {
@@ -16,10 +17,11 @@ import {
 } from '../components/ui';
 import { WordBrowser } from '../components/WordBrowser';
 import { useAccount } from '../db/auth';
-import { useAccountSummaries, usePractices, useTagCounts, useWords } from '../db/hooks';
+import { useAccountSummaries, useAssignmentAttempts, useAssignments, usePractices, useTagCounts, useWords } from '../db/hooks';
 import { resetStudentPassword, setAccountRole } from '../db/profiles';
 import type { AccountSummary } from '../db/types';
 import { loginLabel, MIN_PASSWORD_LENGTH } from '../lib/accounts';
+import { studentProgress } from '../lib/assignments';
 import { cn } from '../lib/cn';
 import { useDocumentTitle } from '../lib/hooks';
 import { formatDuration } from '../lib/time';
@@ -60,8 +62,12 @@ function StudentDetails({ account }: { account: AccountSummary }) {
   const words = useWords(account.id);
   const practices = usePractices(account.id);
   const tags = useTagCounts(words);
+  const assignments = useAssignments();
+  const attempts = useAssignmentAttempts();
+  const given = assignments?.filter((a) => a.studentIds.includes(account.id));
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'history' ? 'history' : 'words';
+  const tabParam = params.get('tab');
+  const tab = tabParam === 'history' || tabParam === 'assignments' ? tabParam : 'words';
   const [resetting, setResetting] = useState(false);
   const isMe = account.id === me;
   const isStudent = account.role === 'student';
@@ -96,18 +102,37 @@ function StudentDetails({ account }: { account: AccountSummary }) {
           value={tab}
           onChange={(value) => {
             const next = new URLSearchParams(params);
-            if (value === 'history') next.set('tab', 'history');
-            else next.delete('tab');
+            if (value === 'words') next.delete('tab');
+            else next.set('tab', value);
             setParams(next, { replace: true });
           }}
           options={[
             { value: 'words', label: `Từ vựng (${account.wordCount})` },
             { value: 'history', label: `Lịch sử luyện tập (${account.practiceCount})` },
+            { value: 'assignments', label: `Bài tập${given ? ` (${given.length})` : ''}` },
           ]}
         />
       </div>
 
-      {tab === 'words' ? (
+      {tab === 'assignments' ? (
+        !given || !attempts ? (
+          <PageLoader />
+        ) : given.length === 0 ? (
+          <EmptyState icon={<ClipboardList />} title="Chưa có bài tập nào">
+            Chưa có bài tập nào được giao cho {account.displayName}.
+          </EmptyState>
+        ) : (
+          <ul className="grid gap-2 md:grid-cols-2">
+            {given.map((assignment) => (
+              <AssignmentRow
+                key={assignment.id}
+                assignment={assignment}
+                progress={studentProgress(assignment, attempts, account.id)}
+              />
+            ))}
+          </ul>
+        )
+      ) : tab === 'words' ? (
         !words ? (
           <PageLoader />
         ) : words.length === 0 ? (

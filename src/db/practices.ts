@@ -5,6 +5,7 @@ import { changed } from './store';
 import type { PracticeLog, PracticeWord } from './types';
 
 type PracticeRow = Database['public']['Tables']['practices']['Row'];
+type PracticeInsert = Database['public']['Tables']['practices']['Insert'];
 
 export function toPracticeLog(row: PracticeRow): PracticeLog {
   return {
@@ -16,11 +17,17 @@ export function toPracticeLog(row: PracticeRow): PracticeLog {
     endedEarly: row.ended_early,
     words: row.words as unknown as PracticeWord[],
     notes: row.notes,
+    ...(row.assignment_id ? { assignmentId: row.assignment_id } : {}),
   };
 }
 
-export function toPracticeRow(log: PracticeLog, ownerId: string): PracticeRow {
+/**
+ * The link to an assignment is only included when the log has one, so restoring a backup
+ * (whose sessions never carry it) leaves the links of sessions already saved alone.
+ */
+export function toPracticeRow(log: PracticeLog, ownerId: string): PracticeInsert {
   return {
+    ...(log.assignmentId ? { assignment_id: log.assignmentId } : {}),
     owner_id: ownerId,
     id: log.id,
     started_at: new Date(log.startedAt).toISOString(),

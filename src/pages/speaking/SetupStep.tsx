@@ -123,7 +123,8 @@ interface SetupRowProps {
   children: ReactNode;
 }
 
-function SetupRow({ step, title, htmlFor, description, children }: SetupRowProps) {
+/** A numbered step of a settings form. */
+export function SetupRow({ step, title, htmlFor, description, children }: SetupRowProps) {
   return (
     <section className={cn(panelClass, 'flex gap-4 rounded-2xl p-5')}>
       <span className="grid size-7 shrink-0 place-items-center rounded-full bg-ink text-sm font-semibold text-paper">

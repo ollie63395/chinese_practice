@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatClock, formatDay, formatDuration, formatTime } from './time';
+import { formatClock, formatDay, formatDuration, formatTime, isoDate, parseIsoDate } from './time';
 
 describe('formatClock', () => {
   it.each([
@@ -48,5 +48,18 @@ describe('formatDay', () => {
 
   it('gives the date in Vietnamese for anything older', () => {
     expect(formatDay(new Date(2026, 9, 8, 12).getTime(), now)).toBe('Thứ Năm, 8/10/2026');
+  });
+
+  it('says Ngày mai, and gives the date for later days', () => {
+    expect(formatDay(new Date(2026, 9, 11, 23, 55).getTime(), now)).toBe('Ngày mai');
+    expect(formatDay(new Date(2026, 9, 12, 8).getTime(), now)).toBe('Thứ Hai, 12/10/2026');
+  });
+});
+
+describe('parseIsoDate', () => {
+  it('gives the local midnight that starts or ends the day', () => {
+    expect(parseIsoDate('2026-10-31')).toBe(new Date(2026, 9, 31).getTime());
+    expect(parseIsoDate('2026-10-31', true)).toBe(new Date(2026, 10, 1).getTime());
+    expect(isoDate(parseIsoDate('2026-12-31', true))).toBe('2027-01-01');
   });
 });

@@ -5,12 +5,14 @@ import { MAX_SPEECH_SECONDS, MIN_SPEECH_SECONDS } from '../../components/NumberI
 import { PageLoader } from '../../components/ui';
 import { useTagCounts, useWords } from '../../db/hooks';
 import { addPractice } from '../../db/practices';
-import type { PracticeLog, Word } from '../../db/types';
+import type { Assignment, PracticeLog, Word } from '../../db/types';
+import { assignmentWords } from '../../lib/assignments';
 import { useBeforeUnload, useDocumentTitle } from '../../lib/hooks';
 import { isRecord, stringArray, useRememberedState } from '../../lib/prefs';
 import { sample } from '../../lib/random';
 import { unlockAudio } from '../../lib/sound';
 import { wordsWithAnyTag } from '../../lib/tags';
+import { AssignmentIntro } from './AssignmentIntro';
 import { DoneStep } from './DoneStep';
 import { PrepareStep } from './PrepareStep';
 import { SetupStep } from './SetupStep';
@@ -46,11 +48,30 @@ export interface ReplayState {
   notes: string;
 }
 
-export function SpeakingPage() {
-  useDocumentTitle('Luyện nói');
-  const words = useWords();
+/** A session that couldn't be linked to its assignment: it was deleted, or the student taken off it. */
+function lostAssignment(err: unknown): boolean {
+  const code = err instanceof Error && isRecord(err.cause) ? err.cause.code : undefined;
+  return code === '42501' || code === '23503';
+}
+
+interface SpeakingPageProps {
+  /** Practising for an assignment: its words, number of words and time, which can't be changed. */
+  assignment?: Assignment;
+}
+
+export function SpeakingPage({ assignment }: SpeakingPageProps) {
+  useDocumentTitle(assignment?.title ?? 'Luyện nói');
+  const ownWords = useWords();
+  const givenWords = useMemo(() => assignment && assignmentWords(assignment), [assignment]);
+  const words = givenWords ?? ownWords;
   const tagCounts = useTagCounts(words);
-  const [settings, setSettings] = useRememberedState('speaking', sanitizeSettings);
+  const [remembered, setSettings] = useRememberedState('speaking', sanitizeSettings);
+  // An assignment's settings are its own; what's remembered for free practice is left alone.
+  const settings = useMemo<SpeakingSettings>(
+    () =>
+      assignment ? { count: assignment.wordCount, timeLimitSec: assignment.timeLimitSec, source: 'all', tags: [] } : remembered,
+    [assignment, remembered],
+  );
   const [phase, setPhase] = useState<Phase>('setup');
   const [chosen, setChosen] = useState<Word[]>([]);
   const [notes, setNotes] = useState('');
@@ -158,10 +179,17 @@ export function SpeakingPage() {
         meaning: w.meaning,
         used: result.usedIds.includes(w.id),
       })),
+      ...(assignment ? { assignmentId: assignment.id } : {}),
     };
     let saved: PracticeLog;
     try {
-      saved = await addPractice(entry);
+      try {
+        saved = await addPractice(entry);
+      } catch (err) {
+        if (!entry.assignmentId || !lostAssignment(err)) throw err;
+        saved = await addPractice({ ...entry, assignmentId: undefined });
+        toast('Bài tập này không còn được giao cho bạn, nên buổi luyện chỉ được lưu vào lịch sử.');
+      }
     } catch {
       saved = { ...entry, id: '' };
       toast('Không lưu được buổi luyện này vào lịch sử.');
@@ -174,7 +202,9 @@ export function SpeakingPage() {
 
   switch (phase) {
     case 'setup':
-      return (
+      return assignment ? (
+        <AssignmentIntro assignment={assignment} onDraw={draw} />
+      ) : (
         <SetupStep
           wordCount={words.length}
           tagCounts={tagCounts}
@@ -189,6 +219,7 @@ export function SpeakingPage() {
     case 'prepare':
       return (
         <PrepareStep
+          locked={Boolean(assignment)}
           chosen={chosen}
           onChosenChange={setChosen}
           pool={pool}
@@ -208,6 +239,7 @@ export function SpeakingPage() {
       return (
         <DoneStep
           log={log}
+          assignment={assignment}
           onDrawAgain={draw}
           // Notes are kept: retrying the same words usually means retrying the same plan.
           onSameWords={() => setPhase('prepare')}

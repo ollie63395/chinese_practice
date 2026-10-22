@@ -1,4 +1,16 @@
-import { BookOpen, DatabaseBackup, History, Layers, LogOut, Mic, Plus, UserRound, Users, type LucideIcon } from 'lucide-react';
+import {
+  BookOpen,
+  ClipboardList,
+  DatabaseBackup,
+  History,
+  Layers,
+  LogOut,
+  Mic,
+  Plus,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link, Outlet, ScrollRestoration, useLocation } from 'react-router';
 import { AccountContext, signOut, useSession, type Account } from '../db/auth';
@@ -29,6 +41,13 @@ const NAV: NavItem[] = [
   { to: '/speaking', label: 'Luyện nói', icon: Mic, isActive: (p) => p.startsWith('/speaking') },
   { to: '/history', label: 'Lịch sử', icon: History, isActive: (p) => p.startsWith('/history') },
 ];
+
+const ASSIGNMENTS: NavItem = {
+  to: '/assignments',
+  label: 'Bài tập',
+  icon: ClipboardList,
+  isActive: (p) => p.startsWith('/assignments'),
+};
 
 const STUDENTS: NavItem = { to: '/students', label: 'Học viên', icon: Users, isActive: (p) => p.startsWith('/students') };
 
@@ -108,11 +127,12 @@ function SignedIn({ userId }: { userId: string }) {
   );
 }
 
-function Brand() {
+/** `compact`: only the logo where the header is short of room (phones, and tablets showing the full menu). */
+function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <Link to="/" className="flex items-center gap-2.5 rounded-lg font-semibold" aria-label="Trang chủ Qinglan Chinese Class">
+    <Link to="/" className="flex shrink-0 items-center gap-2.5 rounded-lg font-semibold" aria-label="Trang chủ Qinglan Chinese Class">
       <img src="favicon.svg" alt="" className="size-8 rounded-lg shadow-sm ring-1 ring-line" />
-      <span className="text-lg tracking-tight">Qinglan Chinese Class</span>
+      <span className={cn('text-lg tracking-tight', compact && 'max-sm:hidden md:max-lg:hidden')}>Qinglan Chinese Class</span>
     </Link>
   );
 }
@@ -133,14 +153,14 @@ function Frame({ children }: { children: ReactNode }) {
 
 function AppFrame({ account }: { account: Account }) {
   const { pathname } = useLocation();
-  const nav = account.isTeacher ? [...NAV, STUDENTS] : NAV;
+  const nav = account.isTeacher ? [...NAV, ASSIGNMENTS, STUDENTS] : [...NAV, ASSIGNMENTS];
 
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-4">
-          <Brand />
-          <nav aria-label="Điều hướng chính" className="ml-6 hidden items-center gap-1 md:flex">
+          <Brand compact />
+          <nav aria-label="Điều hướng chính" className="ml-3 hidden items-center gap-1 md:flex lg:ml-6">
             {nav.map((item) => {
               const active = item.isActive(pathname);
               return (
@@ -149,7 +169,7 @@ function AppFrame({ account }: { account: Account }) {
                   to={item.to}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'rounded-lg px-3 py-1.5 text-sm font-medium transition',
+                    'rounded-lg px-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition lg:px-3',
                     active ? 'bg-card text-ink shadow-xs ring-1 ring-line' : 'text-muted hover:text-ink',
                   )}
                 >
@@ -159,7 +179,16 @@ function AppFrame({ account }: { account: Account }) {
             })}
           </nav>
           <div className="ml-auto flex items-center gap-1.5">
-            {/* The phone's bottom bar has no room for the teacher's page, so it lives up here. */}
+            {/* The phone's bottom bar has no room for these pages, so they live up here. */}
+            <Link
+              to="/assignments"
+              title={ASSIGNMENTS.label}
+              aria-label={ASSIGNMENTS.label}
+              aria-current={ASSIGNMENTS.isActive(pathname) ? 'page' : undefined}
+              className={buttonClass('ghost', 'icon', 'md:hidden')}
+            >
+              <ClipboardList />
+            </Link>
             {account.isTeacher && (
               <Link
                 to="/students"
@@ -189,9 +218,9 @@ function AppFrame({ account }: { account: Account }) {
             >
               <UserRound />
             </Link>
-            {/* On phones the bottom bar has its own add button. */}
-            <Link to="/words/new" className={buttonClass('primary', 'sm', 'max-md:hidden')}>
-              <Plus /> Thêm từ
+            {/* On phones the bottom bar has its own add button; on tablets only the + fits beside the menu. */}
+            <Link to="/words/new" title="Thêm từ" className={buttonClass('primary', 'sm', 'max-md:hidden')}>
+              <Plus /> <span className="max-lg:sr-only">Thêm từ</span>
             </Link>
           </div>
         </div>

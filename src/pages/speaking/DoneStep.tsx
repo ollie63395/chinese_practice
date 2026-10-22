@@ -1,21 +1,26 @@
-import { Check, Dices, PartyPopper, Repeat, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, Check, ClipboardCheck, Clock, Dices, PartyPopper, Repeat, SlidersHorizontal } from 'lucide-react';
 import { Link } from 'react-router';
 import { PracticeWordList } from '../../components/PracticeWordList';
 import { buttonClass, MixedText, PageLoader, panelClass } from '../../components/ui';
-import type { PracticeLog } from '../../db/types';
+import type { Assignment, PracticeLog } from '../../db/types';
+import { isComplete } from '../../lib/assignments';
 import { cn } from '../../lib/cn';
 import { formatDuration } from '../../lib/time';
 
 interface DoneStepProps {
   log: PracticeLog | null;
+  /** Set when practising for an assignment. */
+  assignment?: Assignment;
   onDrawAgain: () => void;
   onSameWords: () => void;
   onChangeSettings: () => void;
 }
 
-export function DoneStep({ log, onDrawAgain, onSameWords, onChangeSettings }: DoneStepProps) {
+export function DoneStep({ log, assignment, onDrawAgain, onSameWords, onChangeSettings }: DoneStepProps) {
   if (!log) return <PageLoader />;
   const usedCount = log.words.filter((w) => w.used).length;
+  // Only once it's saved with its link does the session count towards the assignment.
+  const countedFor = log.id && log.assignmentId ? assignment : undefined;
 
   return (
     <div className="mx-auto max-w-2xl animate-rise">
@@ -43,6 +48,19 @@ export function DoneStep({ log, onDrawAgain, onSameWords, onChangeSettings }: Do
             <Check className="size-4" /> Đã lưu vào lịch sử
           </p>
         )}
+        {countedFor &&
+          (isComplete(log) ? (
+            <p className="mx-auto mt-4 flex max-w-md items-center justify-center gap-2 rounded-2xl bg-good-soft px-4 py-3 text-sm font-medium text-good">
+              <ClipboardCheck className="size-5 shrink-0" />
+              <span>
+                <MixedText>{`Bạn đã hoàn thành bài tập “${countedFor.title}”.`}</MixedText>
+              </span>
+            </p>
+          ) : (
+            <p className="mx-auto mt-4 flex max-w-md items-center justify-center gap-2 rounded-2xl bg-warn-soft px-4 py-3 text-sm font-medium text-warn">
+              <Clock className="size-5 shrink-0" /> Hãy nói đủ {formatDuration(log.timeLimitSec)} để hoàn thành bài tập.
+            </p>
+          ))}
       </div>
 
       <div className="mt-8">
@@ -65,9 +83,15 @@ export function DoneStep({ log, onDrawAgain, onSameWords, onChangeSettings }: Do
         <button type="button" onClick={onSameWords} className={buttonClass('secondary', 'lg')}>
           <Repeat /> Dùng lại các từ này
         </button>
-        <button type="button" onClick={onChangeSettings} className={buttonClass('ghost', 'lg')}>
-          <SlidersHorizontal /> Đổi cài đặt
-        </button>
+        {assignment ? (
+          <Link to="/assignments" className={buttonClass('ghost', 'lg')}>
+            <ArrowLeft /> Về danh sách bài tập
+          </Link>
+        ) : (
+          <button type="button" onClick={onChangeSettings} className={buttonClass('ghost', 'lg')}>
+            <SlidersHorizontal /> Đổi cài đặt
+          </button>
+        )}
       </div>
       {log.id && (
         <p className="mt-4 text-center text-sm">

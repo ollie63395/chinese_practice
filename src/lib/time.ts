@@ -37,13 +37,20 @@ export function startOfDay(timestamp: number): number {
   return date.getTime();
 }
 
-/** "Hôm nay", "Hôm qua", or a date such as "Thứ Năm, 8/10/2026". */
+/** "Hôm nay", "Hôm qua", "Ngày mai", or a date such as "Thứ Năm, 8/10/2026". */
 export function formatDay(timestamp: number, now = Date.now()): string {
   // Rounding keeps this right across daylight-saving changes (23- or 25-hour days).
   const daysAgo = Math.round((startOfDay(now) - startOfDay(timestamp)) / 86_400_000);
   if (daysAgo === 0) return 'Hôm nay';
   if (daysAgo === 1) return 'Hôm qua';
+  if (daysAgo === -1) return 'Ngày mai';
   return dayFormat.format(timestamp);
+}
+
+/** The local midnight starting a YYYY-MM-DD day; `endOfDay` is the next one. */
+export function parseIsoDate(day: string, endOfDay = false): number {
+  const [year, month, date] = day.split('-').map(Number);
+  return new Date(year, month - 1, date + (endOfDay ? 1 : 0)).getTime();
 }
 
 /** A date as YYYY-MM-DD, in local time. */
