@@ -23,6 +23,30 @@ describe('parseTable', () => {
     expect(parseTable('5" màn hình,x')).toEqual([['5" màn hình', 'x']]);
   });
 
+  it('reads curly-quoted cells as one cell, commas and all', () => {
+    expect(parseTable('“你好”,“nǐ hǎo”,“xin chào, chào”,“chào hỏi”\n“a”, “b” ,c')).toEqual([
+      ['你好', 'nǐ hǎo', 'xin chào, chào', 'chào hỏi'],
+      ['a', 'b ', 'c'],
+    ]);
+    expect(parseTable('“nói “chào” nhé”,x')).toEqual([['nói “chào” nhé', 'x']]);
+  });
+
+  it('keeps curly quotes that don’t wrap a whole cell as they are', () => {
+    expect(parseTable('“chưa đóng, x\ny”,z')).toEqual([
+      ['“chưa đóng', ' x'],
+      ['y”', 'z'],
+    ]);
+    expect(parseTable('nói “chào”, x')).toEqual([['nói “chào”', ' x']]);
+    expect(parseTable('“chào” nhé, x')).toEqual([['“chào” nhé', ' x']]);
+  });
+
+  it('ignores separators inside curly quotes when guessing', () => {
+    expect(parseTable('“a, b, c”;d\n1;2')).toEqual([
+      ['a, b, c', 'd'],
+      ['1', '2'],
+    ]);
+  });
+
   it('guesses semicolons and tabs', () => {
     expect(parseTable('a;b;c\n1;2,5;3')).toEqual([
       ['a', 'b', 'c'],

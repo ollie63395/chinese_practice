@@ -42,8 +42,24 @@ export type ImportRow = {
   | { status: 'error'; error: string }
 );
 
+// Straight, curly and Chinese quotation marks, which AI chats and word processors leave around
+// cells. Not 《》: those mark a title, and belong to the word.
+const QUOTES = `"'“”„‟‘’‚‛«»‹›「」『』〝〞〟＂＇`;
+const QUOTES_AT_ENDS = new RegExp(`^[\\s${QUOTES}]+|[\\s${QUOTES}]+$`, 'g');
+const ANY_QUOTE = new RegExp(`[${QUOTES}]`);
+
+function stripQuotes(text: string): string {
+  return text.replace(QUOTES_AT_ENDS, '');
+}
+
+/** For free text, which may quote something itself: nói "chào" keeps its quotes, "xin chào" loses them. */
+function stripWrappingQuotes(text: string): string {
+  const inner = stripQuotes(text);
+  return ANY_QUOTE.test(inner) ? text : inner;
+}
+
 function normalizeHeader(text: string): string {
-  return text
+  return stripQuotes(text)
     .replace(/\(.*?\)|\[.*?\]|\*/g, '')
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
@@ -72,7 +88,7 @@ function wordKey(word: string, reading: string): string {
 
 /** Tags in one cell, separated by commas (also 、 and ，), semicolons or bars. */
 function readTags(cell: string, known: string[]): string[] {
-  const tags = cell.split(/[,;|、，；]/).reduce<string[]>((tags, part) => addTag(tags, part, known), []);
+  const tags = cell.split(/[,;|、，；]/).reduce<string[]>((tags, part) => addTag(tags, stripQuotes(part), known), []);
   // Later rows reuse this row's spelling of a new tag.
   for (const tag of tags) if (!known.some((t) => t.toLowerCase() === tag.toLowerCase())) known.push(tag);
   return tags;
@@ -121,7 +137,11 @@ export function previewImport(rows: readonly (readonly string[])[], bank: readon
 
   return dataRows.map(({ row, index }): ImportRow => {
     const rowNumber = index + 1;
-    const { value: fields, errors } = checkWord({ word: cell(row, 'word'), reading: cell(row, 'reading'), meaning: cell(row, 'meaning') });
+    const { value: fields, errors } = checkWord({
+      word: stripQuotes(cell(row, 'word')),
+      reading: stripQuotes(cell(row, 'reading')),
+      meaning: stripWrappingQuotes(cell(row, 'meaning')),
+    });
     const value = { ...fields, tags: readTags(cell(row, 'tags'), known) };
 
     const error = value.word.includes('?') && !hasHanzi(value.word) ? UTF8_DAMAGE : (errors.word ?? errors.reading ?? errors.meaning);

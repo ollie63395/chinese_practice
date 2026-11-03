@@ -57,6 +57,69 @@ describe('previewImport', () => {
     expect(row.status === 'error' && row.error).toMatch(/CSV UTF-8/);
   });
 
+  it('removes quotation marks around a word and its pinyin, whatever their style', () => {
+    const rows = preview(
+      [
+        '“你好”,“nǐ hǎo”,xin chào',
+        '「学校」,xuéxiào,trường học',
+        '"""谢谢""",xièxie,cảm ơn',
+        '老师",lǎoshī",giáo viên',
+        '‘ 昨天 ’,zuótiān,hôm qua',
+        '＂吃＂,\'chī\',ăn',
+      ].join('\n'),
+    );
+    expect(rows.map((r) => [r.status, r.value.word, r.value.reading])).toEqual([
+      ['new', '你好', 'nǐ hǎo'],
+      ['new', '学校', 'xuéxiào'],
+      ['new', '谢谢', 'xièxie'],
+      ['new', '老师', 'lǎoshī'],
+      ['new', '昨天', 'zuótiān'],
+      ['new', '吃', 'chī'],
+    ]);
+  });
+
+  it('leaves what isn’t a quotation mark around the word alone', () => {
+    const rows = preview('《红楼梦》,Hónglóu Mèng,Hồng Lâu Mộng\n西安,Xī\'ān,Tây An');
+    expect(rows.map((r) => [r.value.word, r.value.reading])).toEqual([
+      ['《红楼梦》', 'Hónglóu Mèng'],
+      ['西安', "Xī'ān"],
+    ]);
+  });
+
+  it('compares words with the bank and each other without their quotation marks', () => {
+    const rows = preview('“猫”,“māo”,con mèo\n「狗」,gǒu,chó\n"""狗""",gǒu,chó');
+    expect(statuses(rows)).toEqual(['existing', 'new', 'repeat']);
+  });
+
+  it('counts a word that is only quotation marks as missing', () => {
+    const [row] = preview('“”,nǐ,bạn');
+    expect(row.status === 'error' && row.error).toBe('Hãy nhập từ bằng chữ Hán.');
+  });
+
+  it('recognises headers in quotation marks, rather than importing them as a word', () => {
+    const rows = preview('“Chữ Hán”,“Pinyin”,“Nghĩa”,“Nhãn”\n“你”,“nǐ”,“bạn”,“đại từ”');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ rowNumber: 2, value: { word: '你', reading: 'nǐ', meaning: 'bạn', tags: ['đại từ'] } });
+  });
+
+  it('removes quotation marks wrapping a meaning, but keeps those it uses itself', () => {
+    const meanings = preview(
+      ['一,yī,“một”', '二,èr,hai"', '三,sān,"nói ""chào"""', '四,sì,"""a"" và ""b"""', '五,wǔ,"""chào"" là lời chào"'].join('\n'),
+    ).map((r) => r.value.meaning);
+    expect(meanings).toEqual(['một', 'hai', 'nói "chào"', '"a" và "b"', '"chào" là lời chào']);
+  });
+
+  it('keeps a curly-quoted meaning with a comma in its own column', () => {
+    const [row] = preview('“你好”,“nǐ hǎo”,“xin chào, chào”,“chào hỏi”');
+    expect(row.value).toEqual({ word: '你好', reading: 'nǐ hǎo', meaning: 'xin chào, chào', tags: ['chào hỏi'] });
+  });
+
+  it('removes quotation marks around tags, one by one or around the whole cell', () => {
+    const [first, second] = preview('一,yī,một,"“số”, “HSK 1”"\n二,èr,hai,“số, đếm”');
+    expect(first.value.tags).toEqual(['số', 'HSK 1']);
+    expect(second.value.tags).toEqual(['số', 'đếm']);
+  });
+
   it('splits tags and reuses the spelling of tags already in use', () => {
     const [first, second] = preview('Chữ Hán,Pinyin,Nghĩa,Nhãn\n狗,gǒu,chó,"động vật; Thú cưng | thú cưng"\n兔,tù,thỏ,thú CƯNG、HSK 1');
     expect(first.value.tags).toEqual(['Động vật', 'Thú cưng']);

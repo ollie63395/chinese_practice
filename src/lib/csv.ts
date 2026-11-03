@@ -32,6 +32,10 @@ export function parseTable(text: string): string[][] {
       // A quote opens a quoted cell only at its start; elsewhere it's just a character.
       cell = '';
       quoted = true;
+    } else if (char === '“' && cell.trim() === '' && curlyEnd(body, i, separator) > 0) {
+      const end = curlyEnd(body, i, separator);
+      cell = body.slice(i + 1, end);
+      i = end;
     } else if (char === separator) {
       row.push(cell);
       cell = '';
@@ -51,13 +55,30 @@ export function parseTable(text: string): string[][] {
   return rows;
 }
 
+/**
+ * Where the curly-quoted cell opening at `start` closes, or -1 if it isn't one. AI chats and word
+ * processors often swap the quotes around cells for curly ones, which would otherwise split a
+ * cell at any comma inside it. It has to close on the same line, at the end of the cell.
+ */
+function curlyEnd(text: string, start: number, separator: string): number {
+  for (let i = text.indexOf('”', start); i >= 0; i = text.indexOf('”', i + 1)) {
+    if (text.slice(start, i).includes('\n')) return -1;
+    let next = i + 1;
+    while (text[next] === ' ') next++;
+    if (next === text.length || text[next] === separator || text[next] === '\n') return i;
+  }
+  return -1;
+}
+
 function guessSeparator(text: string): string {
   const counts = { '\t': 0, ',': 0, ';': 0 };
   let quoted = false;
+  let curly = false;
   for (const char of text.trimStart()) {
     if (char === '"') quoted = !quoted;
+    else if (char === '“' || char === '”') curly = char === '“';
     else if (!quoted && char === '\n') break;
-    else if (!quoted && char in counts) counts[char as keyof typeof counts]++;
+    else if (!quoted && !curly && char in counts) counts[char as keyof typeof counts]++;
   }
   if (counts['\t'] > 0) return '\t';
   return counts[';'] > counts[','] ? ';' : ',';
