@@ -1,10 +1,10 @@
 // The app's data functions against local Supabase (`npm run test:db`), signed in as a fresh account.
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createBackup, parseBackup, readBackup, restoreBackup } from '../lib/backup';
 import { supabase } from '../lib/supabase';
 import { listImages, loadImage } from './images';
 import { addPractice, fetchPractices } from './practices';
-import { deleteWord, fetchWord, fetchWords, importWords, saveWord, undoImport } from './words';
+import { deleteWord, deleteWords, fetchWord, fetchWords, importWords, removeWordImages, restoreWords, saveWord, undoImport } from './words';
 
 const png = (label: string) => new Blob([label], { type: 'image/png' });
 const draft = { word: '猫', reading: 'māo', meaning: 'mèo', tags: ['động vật'] };
@@ -99,6 +99,74 @@ describe('importWords', () => {
     await undoImport({ addedIds, previous: [] });
     expect(await fetchWord(me, addedIds[0])).toBeNull();
     expect(await listImages(me)).not.toContain(withPicture.imagePath);
+  });
+});
+
+describe('deleteWords', () => {
+  it('deletes only the chosen words, and restoreWords brings them back exactly, picture included', async () => {
+    const keep = await saveWord({ ...draft, word: '留' });
+    const plain = await saveWord({ ...draft, word: '去' });
+    const pictured = await saveWord({ ...draft, word: '图', image: png('kept for undo') });
+
+    const { deleted, error } = await deleteWords([plain.id, pictured.id]);
+    expect(error).toBeUndefined();
+    expect(deleted.map((w) => w.id).sort()).toEqual([plain.id, pictured.id].sort());
+    expect(await fetchWord(me, plain.id)).toBeNull();
+    expect(await fetchWord(me, keep.id)).toEqual(keep);
+    // The picture waits, in case of an undo.
+    expect(await listImages(me)).toContain(pictured.imagePath);
+
+    await restoreWords(deleted);
+    expect(await fetchWord(me, plain.id)).toEqual(plain);
+    const back = await fetchWord(me, pictured.id);
+    expect(back).toEqual(pictured);
+    expect(await (await loadImage(back!.imagePath!)).text()).toBe('kept for undo');
+  });
+
+  it('removes the pictures once the words can’t come back', async () => {
+    const pictured = await saveWord({ ...draft, word: '画', image: png('gone') });
+    const { deleted } = await deleteWords([pictured.id]);
+    await removeWordImages(deleted);
+    expect(await listImages(me)).not.toContain(pictured.imagePath);
+  });
+
+  it('handles more words than fit in one request, and ignores ids that aren’t there', async () => {
+    const { addedIds } = await importWords({
+      add: Array.from({ length: 230 }, (_, i) => ({ word: `字${i}`, reading: 'zì', meaning: `chữ ${i}`, tags: [] })),
+      update: [],
+    });
+    const before = (await fetchWords(me)).length;
+    const { deleted, error } = await deleteWords([...addedIds, 'no-such-word']);
+    expect(error).toBeUndefined();
+    expect(deleted).toHaveLength(230);
+    expect(await fetchWords(me)).toHaveLength(before - 230);
+  });
+
+  it('says how far it got if something goes wrong partway, so that part can still be undone', async () => {
+    const { addedIds } = await importWords({
+      add: Array.from({ length: 150 }, (_, i) => ({ word: `错${i}`, reading: 'cuò', meaning: `sai ${i}`, tags: [] })),
+      update: [],
+    });
+    // The second request fails.
+    const from = supabase.from.bind(supabase);
+    const failing = { error: { code: '23514', message: 'nope' }, data: null };
+    const chain: Record<string, unknown> = {
+      delete: () => chain,
+      eq: () => chain,
+      in: () => chain,
+      select: () => Promise.resolve(failing),
+    };
+    const spy = vi.spyOn(supabase, 'from');
+    spy.mockImplementationOnce(from as never).mockImplementationOnce((() => chain) as never);
+
+    const { deleted, error } = await deleteWords(addedIds);
+    spy.mockRestore();
+    expect(error?.message).toBeTruthy();
+    expect(deleted).toHaveLength(100);
+
+    await restoreWords(deleted);
+    expect((await fetchWords(me)).filter((w) => addedIds.includes(w.id))).toHaveLength(150);
+    await deleteWords(addedIds);
   });
 });
 

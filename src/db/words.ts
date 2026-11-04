@@ -148,28 +148,58 @@ export async function importWords({ add, update }: WordImport): Promise<ImportRe
 
 /** Puts things back as they were before an import. */
 export async function undoImport({ addedIds, previous }: ImportReceipt): Promise<void> {
+  const { deleted, error } = await deleteWords(addedIds);
+  // A picture may have been added since.
+  await removeWordImages(deleted);
+  if (error) throw error;
+  await restoreWords(previous);
+}
+
+/**
+ * Deletes many of the signed-in account's words, and returns the ones that went so that
+ * restoreWords can bring them back. Their pictures stay until removeWordImages is called.
+ * If something goes wrong partway, `error` is set and `deleted` says how far it got.
+ */
+export async function deleteWords(ids: readonly string[]): Promise<{ deleted: Word[]; error?: Error }> {
   const owner = await myId();
+  const deleted: Word[] = [];
   try {
     // The ids go in the request's address, so fewer at a time.
-    for (let i = 0; i < addedIds.length; i += 100) {
-      const deleted = check(
+    for (let i = 0; i < ids.length; i += 100) {
+      const rows = check(
         await supabase
           .from('words')
           .delete()
           .eq('owner_id', owner)
-          .in('id', addedIds.slice(i, i + 100))
-          .select('image_path'),
+          .in('id', ids.slice(i, i + 100))
+          .select(),
       );
-      // A picture may have been added since.
-      await removeImages(deleted.flatMap((row) => (row.image_path ? [row.image_path] : [])));
+      deleted.push(...rows.map(toWord));
     }
-    const rows = previous.map((word) => toRow(word, owner));
+    return { deleted };
+  } catch (err) {
+    return { deleted, error: err instanceof Error ? err : new Error(String(err)) };
+  } finally {
+    changed(owner);
+  }
+}
+
+/** Puts words back exactly as they were, pictures included if they haven't been removed. */
+export async function restoreWords(words: readonly Word[]): Promise<void> {
+  const owner = await myId();
+  const rows = words.map((word) => toRow(word, owner));
+  try {
     for (let i = 0; i < rows.length; i += CHUNK) {
       check(await supabase.from('words').upsert(rows.slice(i, i + CHUNK), { onConflict: 'owner_id,id' }));
     }
   } finally {
     changed(owner);
   }
+}
+
+/** Removes the pictures of deleted words, once they can't be brought back any more. */
+export function removeWordImages(words: readonly Word[]): Promise<void> {
+  return removeImages(words.flatMap((word) => (word.imagePath ? [word.imagePath] : [])));
 }
 
 export async function deleteWord(id: string): Promise<void> {

@@ -9,10 +9,12 @@ interface WordCardProps {
   word: Word;
   /** For a teacher looking at a student's words: no link to the edit page. */
   readOnly?: boolean;
+  /** While choosing several words: the whole card ticks the word instead of opening it. */
+  selection?: { selected: boolean; onToggle: () => void };
 }
 
 /** A word in a list. The whole card links to the edit page, unless it's read-only. */
-export function WordCard({ word, readOnly }: WordCardProps) {
+export function WordCard({ word, readOnly, selection }: WordCardProps) {
   const heading = (
     <>
       <span lang="zh-Hans" className="block truncate font-zh text-2xl leading-tight font-semibold">
@@ -29,13 +31,25 @@ export function WordCard({ word, readOnly }: WordCardProps) {
     // min-w-0 lets a long phrase truncate instead of widening a single-column grid on phones.
     <li
       className={cn(
-        'relative flex min-w-0 gap-4 rounded-2xl border border-line bg-card p-4 shadow-xs transition',
-        !readOnly && 'hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-md',
+        'relative flex min-w-0 gap-4 rounded-2xl border p-4 shadow-xs transition',
+        selection?.selected ? 'border-accent bg-accent-soft ring-2 ring-accent/25' : 'border-line bg-card',
+        !readOnly && !selection && 'hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-md',
+        selection && !selection.selected && 'hover:border-accent/30',
       )}
     >
       <WordImage path={word.imagePath} alt="" className="size-16 shrink-0 rounded-xl object-cover" />
       <div className="min-w-0 flex-1 pr-8">
-        {readOnly ? (
+        {selection ? (
+          <label className="block cursor-pointer after:absolute after:inset-0 after:rounded-2xl">
+            <input
+              type="checkbox"
+              checked={selection.selected}
+              onChange={selection.onToggle}
+              className="absolute top-3 right-3 z-10 size-5 cursor-pointer accent-accent"
+            />
+            {heading}
+          </label>
+        ) : readOnly ? (
           heading
         ) : (
           <Link
@@ -57,7 +71,7 @@ export function WordCard({ word, readOnly }: WordCardProps) {
           </div>
         )}
       </div>
-      <SpeakButton text={word.word} className="absolute top-2 right-2 z-10" />
+      {!selection && <SpeakButton text={word.word} className="absolute top-2 right-2 z-10" />}
     </li>
   );
 }

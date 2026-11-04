@@ -259,6 +259,17 @@ export function Segmented<T extends string>({ label, value, options, onChange }:
   );
 }
 
+/** Actions floating over the bottom of the page, above the phone's navigation bar. */
+export function FloatingBar({ children }: { children: ReactNode }) {
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 px-4 md:bottom-6">
+      <div className="pointer-events-auto mx-auto flex max-w-2xl animate-rise flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3 shadow-lg">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /** A problem to fix before going on, e.g. a wrong password. */
 export function ErrorNotice({ children }: { children: ReactNode }) {
   return (
