@@ -28,6 +28,17 @@ export async function fetchWords(ownerId: string): Promise<Word[]> {
   return rows.map(toWord);
 }
 
+/**
+ * Teachers only: for each of these words, the owner of every bank that has it, with the same id
+ * and still the same characters.
+ */
+export async function fetchWordOwners(words: readonly Pick<Word, 'id' | 'word'>[]): Promise<string[]> {
+  if (words.length === 0) return [];
+  const characters = new Map(words.map((w) => [w.id, w.word]));
+  const rows = check(await supabase.from('words').select('owner_id, id, word').in('id', [...characters.keys()]));
+  return rows.filter((row) => characters.get(row.id) === row.word).map((row) => row.owner_id);
+}
+
 export async function fetchWord(ownerId: string, id: string): Promise<Word | null> {
   const row = check(await supabase.from('words').select('*').eq('owner_id', ownerId).eq('id', id).maybeSingle());
   return row && toWord(row);

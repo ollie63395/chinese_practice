@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Assignment, AssignmentAttempt } from '../db/types';
-import { assignmentProgress, countStatuses, progressByStudent, sortForStudent, statusLabel } from './assignments';
+import { assignmentProgress, countStatuses, likeliestBank, progressByStudent, sortForStudent, statusLabel } from './assignments';
 
 const at = (day: number, hour = 12) => new Date(2026, 9, day, hour).getTime();
 
@@ -113,5 +113,23 @@ describe('sortForStudent', () => {
       item('sooner', '2026-10-25', 'tried'),
     ]);
     expect(sorted.map((i) => i.id)).toEqual(['sooner', 'later', 'no-date', 'done']);
+  });
+});
+
+describe('likeliestBank', () => {
+  it('picks the bank holding the most of the words', () => {
+    expect(likeliestBank(['co', 'an', 'an', 'binh'], ['co', 'an', 'binh'])).toBe('an');
+  });
+
+  it('gives ties to the bank listed first', () => {
+    // Everyone restored the same word list, so they all have the same words.
+    expect(likeliestBank(['an', 'co', 'binh', 'an', 'co', 'binh'], ['co', 'an', 'binh'])).toBe('co');
+    expect(likeliestBank(['an', 'binh'], ['co', 'binh', 'an'])).toBe('binh');
+  });
+
+  it('only picks from the banks given', () => {
+    expect(likeliestBank(['other-teacher', 'other-teacher', 'an'], ['co', 'an'])).toBe('an');
+    expect(likeliestBank(['other-teacher'], ['co', 'an'])).toBeNull();
+    expect(likeliestBank([], ['co'])).toBeNull();
   });
 });

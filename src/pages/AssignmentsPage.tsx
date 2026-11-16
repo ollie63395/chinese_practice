@@ -36,7 +36,7 @@ function TeacherAssignments() {
       />
       {assignments.length === 0 ? (
         <EmptyState icon={<ClipboardList />} title="Chưa giao bài tập nào" action={newButton}>
-          Chọn các từ trong kho của bạn, số từ mỗi lần bốc và thời gian nói, rồi giao cho học viên.
+          Chọn các từ trong kho của bạn hoặc của một học viên, số từ mỗi lần bốc và thời gian nói, rồi giao cho học viên.
         </EmptyState>
       ) : (
         <ul className="grid gap-2 md:grid-cols-2">

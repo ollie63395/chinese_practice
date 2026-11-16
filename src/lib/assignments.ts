@@ -104,6 +104,24 @@ export function sortForStudent<T extends { assignment: Assignment; progress: Ass
   });
 }
 
+/**
+ * Whose word bank an assignment's words were most likely picked from: of `banks` (account ids),
+ * the one holding the most of them, or null if none holds any. `owners` lists, for each word, the
+ * owner of every bank that has it. Words keep their ids when a backup file is restored into
+ * another account, so several banks can hold the same words; ties go to the bank listed first.
+ */
+export function likeliestBank(owners: readonly string[], banks: readonly string[]): string | null {
+  const held = new Map<string, number>();
+  for (const owner of owners) held.set(owner, (held.get(owner) ?? 0) + 1);
+  let best: string | null = null;
+  let most = 0;
+  for (const bank of banks) {
+    const count = held.get(bank) ?? 0;
+    if (count > most) [best, most] = [bank, count];
+  }
+  return best;
+}
+
 /** An assignment's words, shaped for the speaking practice. They have no tags or pictures. */
 export function assignmentWords(assignment: Assignment): Word[] {
   return assignment.words.map((w) => ({

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { makeTeacher, otherDevice, seed, signUp, WORDS } from './helpers';
+import { ANIMALS, makeTeacher, otherDevice, seed, signUp, WORDS } from './helpers';
 
 /** A student's row on an assignment's page. */
 const studentRow = (teacher: Page, name: string) =>
@@ -76,6 +76,51 @@ test('a teacher gives out speaking practice and sees who has done it', async ({ 
 
   await teacher.goto('/#/assignments');
   await expect(teacher.getByRole('listitem').filter({ hasText: title })).toContainText('1/1 đã hoàn thành');
+  await teacher.context().close();
+});
+
+test("a teacher gives out words from a student's own word bank", async ({ page, browser }) => {
+  const title = `Thú cưng của em ${Date.now().toString(36)}`;
+  const name = `Phạm Thị Dung ${Date.now().toString(36)}`;
+  const student = await signUp(page, { name });
+  await seed(page, ANIMALS);
+
+  const teacher = await otherDevice(browser, page);
+  const teacherAccount = await signUp(teacher, { name: 'Thầy Hùng' });
+  await makeTeacher(teacherAccount.login);
+  // None of the student's words.
+  await seed(teacher, WORDS.slice(ANIMALS.length));
+
+  await teacher.goto('/#/assignments/new');
+  await teacher.locator('#assignment-title').fill(title);
+  const bank = teacher.getByLabel('Lấy từ kho từ vựng của');
+  await bank.selectOption({ label: `${name} · ${student.login} · ${ANIMALS.length} từ` });
+  await expect(teacher.getByText(`Học viên bốc từ trong số ${ANIMALS.length} từ.`)).toBeVisible();
+  await teacher.getByRole('group', { name: 'Lấy từ' }).getByRole('button', { name: 'Tự chọn' }).click();
+  const choices = teacher.getByRole('list', { name: 'Các từ' });
+  await expect(choices.getByRole('checkbox')).toHaveCount(ANIMALS.length);
+  await expect(choices).not.toContainText('学校');
+  await choices.getByRole('checkbox', { name: /猫/ }).check();
+  await expect(teacher.getByText('Học viên bốc từ trong số 1 từ.')).toBeVisible();
+  await teacher.getByLabel('Tìm học viên').fill(student.login);
+  await teacher.getByRole('checkbox', { name }).check();
+  await teacher.getByRole('button', { name: 'Giao bài', exact: true }).click();
+  await expect(teacher.getByRole('heading', { name: title })).toBeVisible();
+  await expect(teacher.getByText('Kho từ (1)')).toBeVisible();
+
+  // Changing it starts from the student's bank again, with the word given out picked.
+  await teacher.getByRole('link', { name: 'Sửa' }).click();
+  await expect(bank.locator('option:checked')).toHaveText(`${name} · ${student.login} · ${ANIMALS.length} từ`);
+  await expect(choices.getByRole('checkbox', { name: /猫/ })).toBeChecked();
+  await expect(choices.getByRole('checkbox', { name: /狗/ })).not.toBeChecked();
+  await expect(choices).not.toContainText('学校');
+
+  // The student draws the word that was picked from their own bank.
+  await page.goto('/');
+  await page.getByRole('link', { name: title }).click();
+  await page.getByRole('button', { name: 'Bốc 1 từ' }).click();
+  await expect(page.getByRole('heading', { name: 'Chuẩn bị bài nói' })).toBeVisible();
+  await expect(page.getByRole('main')).toContainText('猫');
   await teacher.context().close();
 });
 

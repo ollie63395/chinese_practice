@@ -1,16 +1,28 @@
-import { BookOpen, Check, FileSpreadsheet, Plus, SearchX, Send, X } from 'lucide-react';
+import { Check, FileSpreadsheet, Plus, SearchX, Send, X } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useToast } from '../components/feedback';
 import { DurationInput, MIN_SPEECH_SECONDS, NumberStepper } from '../components/NumberInputs';
 import { TagPicker } from '../components/TagPicker';
-import { buttonClass, EmptyState, ErrorNotice, inputClass, MixedText, PageHeader, PageLoader, SearchInput, Segmented } from '../components/ui';
+import {
+  buttonClass,
+  EmptyState,
+  ErrorNotice,
+  Field,
+  inputClass,
+  MixedText,
+  PageHeader,
+  PageLoader,
+  SearchInput,
+  Segmented,
+  selectClass,
+} from '../components/ui';
 import { saveAssignment } from '../db/assignments';
 import { useAccount } from '../db/auth';
-import { useAccountSummaries, useAssignments, useTagCounts, useWords } from '../db/hooks';
+import { useAccountSummaries, useAssignments, useTagCounts, useWordOwners, useWords } from '../db/hooks';
 import type { AccountSummary, Assignment, Word } from '../db/types';
 import { loginLabel } from '../lib/accounts';
-import { assignmentWords } from '../lib/assignments';
+import { assignmentWords, likeliestBank } from '../lib/assignments';
 import { cn } from '../lib/cn';
 import { useDocumentTitle } from '../lib/hooks';
 import { fold, matchesSearch } from '../lib/search';
@@ -29,8 +41,10 @@ export function AssignmentFormPage() {
 function EditAssignment({ id }: { id: string }) {
   const me = useAccount().id;
   const assignments = useAssignments();
+  const accounts = useAccountSummaries();
+  const assignment = assignments?.find((a) => a.id === id && a.teacherId === me);
+  const owners = useWordOwners(assignment?.words);
   if (!assignments) return <PageLoader />;
-  const assignment = assignments.find((a) => a.id === id && a.teacherId === me);
   if (!assignment) {
     return (
       <EmptyState
@@ -46,30 +60,45 @@ function EditAssignment({ id }: { id: string }) {
       </EmptyState>
     );
   }
-  return <AssignmentForm existing={assignment} />;
+  if (!accounts || !owners) return <PageLoader />;
+  // Open on the bank the words were picked from, as far as can be told.
+  const banks = [me, ...studentsOf(accounts).map((s) => s.id)];
+  return <AssignmentForm existing={assignment} startBank={likeliestBank(owners, banks) ?? me} />;
 }
 
 type Source = 'all' | 'tags' | 'pick';
 
-function AssignmentForm({ existing }: { existing?: Assignment }) {
+const NO_WORDS: Word[] = [];
+
+const studentsOf = (accounts: AccountSummary[]) => accounts.filter((a) => a.role === 'student');
+
+function AssignmentForm({ existing, startBank }: { existing?: Assignment; startBank?: string }) {
   useDocumentTitle(existing ? 'Sửa bài tập' : 'Giao bài mới');
-  const words = useWords();
+  const me = useAccount().id;
+  const bank = startBank ?? me;
+  // Waited for here, so the form opens with its words in place.
+  const words = useWords(bank);
   const accounts = useAccountSummaries();
   if (!words || !accounts) return <PageLoader />;
-  return <AssignmentFields existing={existing} words={words} accounts={accounts} />;
+  return <AssignmentFields existing={existing} startBank={bank} accounts={accounts} />;
 }
 
 interface AssignmentFieldsProps {
   existing?: Assignment;
-  /** The teacher's own words. */
-  words: Word[];
+  /** Whose word bank the words are picked from at first. */
+  startBank: string;
   accounts: AccountSummary[];
 }
 
-function AssignmentFields({ existing, words, accounts }: AssignmentFieldsProps) {
+function AssignmentFields({ existing, startBank, accounts }: AssignmentFieldsProps) {
+  const me = useAccount().id;
   const navigate = useNavigate();
   const toast = useToast();
-  const tagCounts = useTagCounts(words);
+  // Teachers can read everyone's words, so they can give out a student's own words to practise.
+  const [bank, setBank] = useState(startBank);
+  const bankWords = useWords(bank);
+  const words = bankWords ?? NO_WORDS;
+  const tagCounts = useTagCounts(bankWords);
   const [title, setTitle] = useState(existing?.title ?? '');
   const [instructions, setInstructions] = useState(existing?.instructions ?? '');
   // An assignment being changed starts from the words it was given, picked one by one.
@@ -83,40 +112,20 @@ function AssignmentFields({ existing, words, accounts }: AssignmentFieldsProps) 
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Words already given out stay pickable even if they've since been deleted from the bank.
+  // Words already given out stay pickable even if they aren't in the bank shown: deleted since,
+  // or picked from another bank.
   const choices = useMemo(() => {
     const inBank = new Set(words.map((w) => w.id));
     return [...words, ...(existing ? assignmentWords(existing).filter((w) => !inBank.has(w.id)) : [])];
   }, [words, existing]);
+  // Chosen tags and words are kept on switching banks, but only count in a bank that has them.
+  const mode = source === 'tags' && tagCounts.length === 0 ? 'all' : source;
   const pool =
-    source === 'all' ? words : source === 'tags' ? wordsWithAnyTag(words, tags) : choices.filter((w) => picked.has(w.id));
+    mode === 'all' ? words : mode === 'tags' ? wordsWithAnyTag(words, tags) : choices.filter((w) => picked.has(w.id));
   const max = Math.max(1, pool.length);
   const wordCount = Math.min(count, max);
-  const students = accounts.filter((a) => a.role === 'student');
-
-  if (choices.length === 0) {
-    return (
-      <>
-        <PageHeader back={{ to: '/assignments', label: 'Bài tập' }} zh="作业" title="Giao bài mới" />
-        <EmptyState
-          icon={<BookOpen />}
-          title="Hãy thêm vài từ vào kho của bạn trước"
-          action={
-            <>
-              <Link to="/words/new" className={buttonClass('primary')}>
-                <Plus /> Thêm từ
-              </Link>
-              <Link to="/words/import" className={buttonClass('secondary')}>
-                <FileSpreadsheet /> Nhập từ bảng tính
-              </Link>
-            </>
-          }
-        >
-          Học viên sẽ bốc từ trong số những từ bạn chọn từ kho của mình.
-        </EmptyState>
-      </>
-    );
-  }
+  const students = studentsOf(accounts);
+  const myWordCount = accounts.find((a) => a.id === me)?.wordCount;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -195,23 +204,58 @@ function AssignmentFields({ existing, words, accounts }: AssignmentFieldsProps) 
         </SetupRow>
 
         <SetupRow step={2} title="Kho từ" description={`Học viên bốc từ trong số ${pool.length} từ.`}>
-          <Segmented
-            label="Lấy từ"
-            value={source}
-            onChange={setSource}
-            options={[
-              { value: 'all', label: 'Tất cả' },
-              ...(tagCounts.length > 0 ? [{ value: 'tags' as const, label: 'Theo nhãn' }] : []),
-              { value: 'pick', label: 'Tự chọn' },
-            ]}
-          />
-          {source === 'tags' && (
-            <div className="space-y-2">
-              <TagPicker tags={tagCounts} selected={tags} onChange={setTags} />
-              {tags.length === 0 && <p className="text-sm text-muted">Hãy chọn ít nhất một nhãn.</p>}
-            </div>
+          {students.length > 0 && (
+            <Field
+              label="Lấy từ kho từ vựng của"
+              htmlFor="assignment-bank"
+              hint="Chọn một học viên để giao những từ có trong vốn từ của học viên đó."
+            >
+              <select
+                id="assignment-bank"
+                value={bank}
+                onChange={(event) => setBank(event.target.value)}
+                className={cn(selectClass, 'w-full')}
+              >
+                <option value={me}>{myWordCount === undefined ? 'Bạn' : `Bạn · ${myWordCount} từ`}</option>
+                <optgroup label="Học viên">
+                  {students.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {`${student.displayName} · ${loginLabel(student)} · ${student.wordCount} từ`}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </Field>
           )}
-          {source === 'pick' && <WordChecklist words={choices} picked={picked} onChange={setPicked} />}
+          {!bankWords ? (
+            <p role="status" className="animate-fade-in-late text-sm text-faint">
+              Đang tải…
+            </p>
+          ) : choices.length === 0 ? (
+            <EmptyBank owner={bank === me ? null : accounts.find((a) => a.id === bank)} canSwitch={students.length > 0} />
+          ) : (
+            <>
+              <Segmented
+                label="Lấy từ"
+                value={mode}
+                onChange={setSource}
+                options={[
+                  { value: 'all', label: 'Tất cả' },
+                  ...(tagCounts.length > 0 ? [{ value: 'tags' as const, label: 'Theo nhãn' }] : []),
+                  { value: 'pick', label: 'Tự chọn' },
+                ]}
+              />
+              {mode === 'tags' && (
+                <div className="space-y-2">
+                  <TagPicker tags={tagCounts} selected={tags} onChange={setTags} />
+                  {!tagCounts.some(({ tag }) => tags.includes(tag)) && (
+                    <p className="text-sm text-muted">Hãy chọn ít nhất một nhãn.</p>
+                  )}
+                </div>
+              )}
+              {mode === 'pick' && <WordChecklist words={choices} picked={picked} onChange={setPicked} />}
+            </>
+          )}
         </SetupRow>
 
         <SetupRow step={3} title="Bốc bao nhiêu từ mỗi lần?" htmlFor="assignment-count">
@@ -256,6 +300,34 @@ function AssignmentFields({ existing, words, accounts }: AssignmentFieldsProps) 
   );
 }
 
+interface EmptyBankProps {
+  /** Whose bank it is: `null` for the teacher's own, `undefined` for an account no longer there. */
+  owner: AccountSummary | null | undefined;
+  /** There are students' banks to choose instead. */
+  canSwitch: boolean;
+}
+
+function EmptyBank({ owner, canSwitch }: EmptyBankProps) {
+  if (owner !== null) {
+    return <p className="text-sm text-muted">{owner?.displayName ?? 'Tài khoản này'} chưa thêm từ nào vào kho từ vựng.</p>;
+  }
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted">
+        Kho từ của bạn chưa có từ nào. Hãy thêm vài từ{canSwitch && ', hoặc lấy từ kho của một học viên'}.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Link to="/words/new" className={buttonClass('secondary', 'sm')}>
+          <Plus /> Thêm từ
+        </Link>
+        <Link to="/words/import" className={buttonClass('secondary', 'sm')}>
+          <FileSpreadsheet /> Nhập từ bảng tính
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 const checkRow = 'flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition hover:bg-sunken';
 const checkbox = 'size-4 shrink-0 cursor-pointer accent-accent';
 
@@ -269,6 +341,8 @@ function WordChecklist({ words, picked, onChange }: WordChecklistProps) {
   const [query, setQuery] = useState('');
   const matches = words.filter((w) => matchesSearch(w, query));
   const allPicked = matches.length > 0 && matches.every((w) => picked.has(w.id));
+  // Words picked in another bank are remembered but don't count here.
+  const pickedHere = words.filter((w) => picked.has(w.id)).length;
   const toggle = (id: string) => {
     const next = new Set(picked);
     if (!next.delete(id)) next.add(id);
@@ -291,7 +365,7 @@ function WordChecklist({ words, picked, onChange }: WordChecklistProps) {
           {allPicked ? 'Bỏ chọn' : 'Chọn'} {query.trim() ? `${matches.length} từ phù hợp` : 'tất cả'}
         </button>
       </div>
-      <p className="text-sm text-muted">Đã chọn {picked.size} từ.</p>
+      <p className="text-sm text-muted">Đã chọn {pickedHere} từ.</p>
       <ul aria-label="Các từ" className="max-h-80 overflow-y-auto rounded-xl border border-line p-1">
         {matches.map((word) => (
           <li key={word.id}>

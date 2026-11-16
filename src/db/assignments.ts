@@ -69,7 +69,7 @@ export async function saveAssignment(draft: AssignmentDraft, id?: string): Promi
   const fields = {
     title: draft.title,
     instructions: draft.instructions,
-    // Only what a student needs: nothing else from the teacher's words is copied.
+    // Only what a student needs: not the words' tags or pictures.
     words: draft.words.map(({ id: wordId, word, reading, meaning }) => ({ id: wordId, word, reading, meaning })),
     word_count: draft.wordCount,
     time_limit_sec: Math.round(draft.timeLimitSec),

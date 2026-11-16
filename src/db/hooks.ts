@@ -5,8 +5,8 @@ import { useAccount } from './auth';
 import { fetchPractice, fetchPractices } from './practices';
 import { fetchAccountSummaries, fetchProfile } from './profiles';
 import { useQuery } from './store';
-import type { Word } from './types';
-import { fetchWords } from './words';
+import type { AssignmentWord, Word } from './types';
+import { fetchWordOwners, fetchWords } from './words';
 
 // Cache keys start with the owner's id, so a change to one account reloads only what shows it.
 
@@ -45,6 +45,16 @@ export function useAssignments() {
 /** Sessions started from assignments: everyone's for a teacher, a student's own for them. */
 export function useAssignmentAttempts() {
   return useQuery('assignment-attempts', fetchAssignmentAttempts);
+}
+
+/**
+ * Teachers only: for some of these words, the owner of every bank that has it, to tell whose bank
+ * they came from. A sample is enough for that, and keeps the request small. `undefined` while
+ * loading, or while there are no words to look up.
+ */
+export function useWordOwners(words: readonly AssignmentWord[] | undefined) {
+  const sample = words?.slice(0, 20).map(({ id, word }) => ({ id, word }));
+  return useQuery(sample ? `word-owners/${JSON.stringify(sample)}` : null, () => fetchWordOwners(sample ?? []));
 }
 
 export function useTagCounts(words: Word[] | undefined) {

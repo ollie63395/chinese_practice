@@ -38,7 +38,7 @@ export interface PracticeLog {
   assignmentId?: string;
 }
 
-/** A copy of one of the teacher's words, made when the assignment was saved. */
+/** A copy of a word from the teacher's or a student's bank, made when the assignment was saved. */
 export type AssignmentWord = Pick<PracticeWord, 'id' | 'word' | 'reading' | 'meaning'>;
 
 /** Speaking practice a teacher gives to some students. */
