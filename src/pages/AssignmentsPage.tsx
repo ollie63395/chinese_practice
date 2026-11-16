@@ -1,10 +1,12 @@
-import { ChevronRight, ClipboardList, Plus } from 'lucide-react';
+import { ChevronRight, ClipboardList, FilePenLine, Plus } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { assignmentSummary, AssignmentRow } from '../components/AssignmentList';
 import { buttonClass, EmptyState, MixedText, PageHeader, PageLoader } from '../components/ui';
 import { useAccount } from '../db/auth';
 import { useAssignmentAttempts, useAssignments } from '../db/hooks';
 import type { Assignment, AssignmentAttempt } from '../db/types';
+import { readDraft, savedLabel, type AssignmentFormDraft } from '../lib/assignmentDraft';
 import { countStatuses, progressByStudent, sortForStudent, studentProgress } from '../lib/assignments';
 import { useDocumentTitle } from '../lib/hooks';
 
@@ -16,8 +18,10 @@ export function AssignmentsPage() {
 }
 
 function TeacherAssignments() {
+  const me = useAccount().id;
   const assignments = useAssignments();
   const attempts = useAssignmentAttempts();
+  const [draft] = useState(() => readDraft(me));
   const newButton = (
     <Link to="/assignments/new" className={buttonClass('primary')}>
       <Plus /> Giao bài mới
@@ -32,20 +36,48 @@ function TeacherAssignments() {
         zh="作业"
         title="Bài tập"
         description="Giao bài luyện nói cho học viên, rồi xem ai đã làm xong."
-        actions={assignments.length > 0 && newButton}
+        actions={(assignments.length > 0 || draft) && newButton}
       />
-      {assignments.length === 0 ? (
+      {assignments.length === 0 && !draft ? (
         <EmptyState icon={<ClipboardList />} title="Chưa giao bài tập nào" action={newButton}>
           Chọn các từ trong kho của bạn hoặc của một học viên, số từ mỗi lần bốc và thời gian nói, rồi giao cho học viên.
         </EmptyState>
       ) : (
         <ul className="grid gap-2 md:grid-cols-2">
+          {draft && <DraftRow draft={draft} />}
           {assignments.map((assignment) => (
             <TeacherAssignmentRow key={assignment.id} assignment={assignment} attempts={attempts} />
           ))}
         </ul>
       )}
     </>
+  );
+}
+
+/** The new assignment the teacher started but hasn't given out yet. */
+function DraftRow({ draft }: { draft: AssignmentFormDraft }) {
+  const title = draft.title.trim();
+  return (
+    <li className="group relative flex items-center gap-3 rounded-2xl border border-dashed border-accent/40 bg-card p-4 shadow-xs transition hover:border-accent/70">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <Link
+            to="/assignments/new"
+            className="font-semibold after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-accent"
+          >
+            {title ? <MixedText>{title}</MixedText> : <span className="text-muted">Bài chưa đặt tên</span>}
+          </Link>
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-accent-ink">
+            <FilePenLine className="size-3.5" aria-hidden />
+            Bản nháp
+          </span>
+        </div>
+        <p className="mt-0.5 text-sm text-muted">
+          Chưa giao · {savedLabel(draft)}
+        </p>
+      </div>
+      <ChevronRight className="size-5 shrink-0 text-faint transition group-hover:translate-x-0.5" />
+    </li>
   );
 }
 

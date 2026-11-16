@@ -1,7 +1,7 @@
-import { Check, FileSpreadsheet, Plus, SearchX, Send, X } from 'lucide-react';
+import { Check, FilePenLine, FileSpreadsheet, Plus, SearchX, Send, Trash2, X } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { useToast } from '../components/feedback';
+import { useConfirm, useToast } from '../components/feedback';
 import { DurationInput, MIN_SPEECH_SECONDS, NumberStepper } from '../components/NumberInputs';
 import { TagPicker } from '../components/TagPicker';
 import {
@@ -22,6 +22,16 @@ import { useAccount } from '../db/auth';
 import { useAccountSummaries, useAssignments, useTagCounts, useWordOwners, useWords } from '../db/hooks';
 import type { AccountSummary, Assignment, Word } from '../db/types';
 import { loginLabel } from '../lib/accounts';
+import {
+  blankFields,
+  clearDraft,
+  fitDraft,
+  readDraft,
+  savedLabel,
+  useKeepDraft,
+  type AssignmentFormDraft,
+  type AssignmentFormFields,
+} from '../lib/assignmentDraft';
 import { assignmentWords, likeliestBank } from '../lib/assignments';
 import { cn } from '../lib/cn';
 import { useDocumentTitle } from '../lib/hooks';
@@ -35,7 +45,38 @@ export function AssignmentFormPage() {
   const { isTeacher } = useAccount();
   const { id } = useParams();
   if (!isTeacher) return <NotFoundPage />;
-  return id ? <EditAssignment key={id} id={id} /> : <AssignmentForm />;
+  return id ? <EditAssignment key={id} id={id} /> : <NewAssignment />;
+}
+
+/** A new assignment carries on from the draft the teacher left, if there is one. */
+function NewAssignment() {
+  const me = useAccount().id;
+  const accounts = useAccountSummaries();
+  const confirm = useConfirm();
+  // Read once: from then on the form keeps it up to date itself.
+  const [draft, setDraft] = useState(() => readDraft(me));
+  if (!accounts) return <PageLoader />;
+
+  const discard = async () => {
+    const ok = await confirm({
+      title: 'Bỏ bản nháp này?',
+      message: 'Những gì bạn đã điền cho bài tập này sẽ bị xóa, và bạn soạn lại từ đầu.',
+      confirmLabel: 'Bỏ bản nháp',
+      cancelLabel: 'Giữ lại',
+      danger: true,
+    });
+    if (!ok) return;
+    clearDraft(me);
+    setDraft(null);
+  };
+
+  const students = studentsOf(accounts).map((s) => s.id);
+  // The key starts a blank form once the draft is thrown away.
+  return draft ? (
+    <AssignmentForm key="draft" draft={fitDraft(draft, me, students)} onDiscard={() => void discard()} />
+  ) : (
+    <AssignmentForm key="blank" />
+  );
 }
 
 function EditAssignment({ id }: { id: string }) {
@@ -66,51 +107,94 @@ function EditAssignment({ id }: { id: string }) {
   return <AssignmentForm existing={assignment} startBank={likeliestBank(owners, banks) ?? me} />;
 }
 
-type Source = 'all' | 'tags' | 'pick';
+type Source = AssignmentFormFields['source'];
 
 const NO_WORDS: Word[] = [];
 
 const studentsOf = (accounts: AccountSummary[]) => accounts.filter((a) => a.role === 'student');
 
-function AssignmentForm({ existing, startBank }: { existing?: Assignment; startBank?: string }) {
+interface AssignmentFormProps {
+  existing?: Assignment;
+  /** For a new assignment: the draft to carry on with. */
+  draft?: AssignmentFormDraft;
+  /** Throws the draft away. */
+  onDiscard?: () => void;
+  /** Whose word bank the words are picked from at first, if not the draft's or the teacher's own. */
+  startBank?: string;
+}
+
+function AssignmentForm({ existing, draft, onDiscard, startBank }: AssignmentFormProps) {
   useDocumentTitle(existing ? 'Sửa bài tập' : 'Giao bài mới');
   const me = useAccount().id;
-  const bank = startBank ?? me;
+  const bank = startBank ?? draft?.bank ?? me;
   // Waited for here, so the form opens with its words in place.
   const words = useWords(bank);
   const accounts = useAccountSummaries();
   if (!words || !accounts) return <PageLoader />;
-  return <AssignmentFields existing={existing} startBank={bank} accounts={accounts} />;
+  return <AssignmentFields existing={existing} draft={draft} onDiscard={onDiscard} startBank={bank} accounts={accounts} />;
 }
 
-interface AssignmentFieldsProps {
-  existing?: Assignment;
+interface AssignmentFieldsProps extends Omit<AssignmentFormProps, 'startBank'> {
   /** Whose word bank the words are picked from at first. */
   startBank: string;
   accounts: AccountSummary[];
 }
 
-function AssignmentFields({ existing, startBank, accounts }: AssignmentFieldsProps) {
+/** What the form starts with: the draft, the assignment being changed, or nothing yet. */
+function startingFields({ existing, draft, startBank }: AssignmentFieldsProps): AssignmentFormFields {
+  if (draft) return draft;
+  if (!existing) return blankFields(startBank);
+  return {
+    title: existing.title,
+    instructions: existing.instructions,
+    bank: startBank,
+    // An assignment being changed starts from the words it was given, picked one by one.
+    source: 'pick',
+    tags: [],
+    picked: existing.words.map((w) => w.id),
+    count: existing.wordCount,
+    timeLimitSec: existing.timeLimitSec,
+    dueOn: existing.dueOn ?? '',
+    studentIds: existing.studentIds,
+  };
+}
+
+function AssignmentFields(props: AssignmentFieldsProps) {
+  const { existing, draft, onDiscard, accounts } = props;
   const me = useAccount().id;
   const navigate = useNavigate();
   const toast = useToast();
+  const [start] = useState(() => startingFields(props));
   // Teachers can read everyone's words, so they can give out a student's own words to practise.
-  const [bank, setBank] = useState(startBank);
+  const [bank, setBank] = useState(start.bank);
   const bankWords = useWords(bank);
   const words = bankWords ?? NO_WORDS;
   const tagCounts = useTagCounts(bankWords);
-  const [title, setTitle] = useState(existing?.title ?? '');
-  const [instructions, setInstructions] = useState(existing?.instructions ?? '');
-  // An assignment being changed starts from the words it was given, picked one by one.
-  const [source, setSource] = useState<Source>(existing ? 'pick' : 'all');
-  const [tags, setTags] = useState<string[]>([]);
-  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(existing?.words.map((w) => w.id)));
-  const [count, setCount] = useState(existing?.wordCount ?? 5);
-  const [timeLimitSec, setTimeLimitSec] = useState(existing?.timeLimitSec ?? 120);
-  const [dueOn, setDueOn] = useState(existing?.dueOn ?? '');
-  const [studentIds, setStudentIds] = useState<ReadonlySet<string>>(() => new Set(existing?.studentIds));
+  const [title, setTitle] = useState(start.title);
+  const [instructions, setInstructions] = useState(start.instructions);
+  const [source, setSource] = useState<Source>(start.source);
+  const [tags, setTags] = useState(start.tags);
+  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(start.picked));
+  const [count, setCount] = useState(start.count);
+  const [timeLimitSec, setTimeLimitSec] = useState(start.timeLimitSec);
+  const [dueOn, setDueOn] = useState(start.dueOn);
+  const [studentIds, setStudentIds] = useState<ReadonlySet<string>>(() => new Set(start.studentIds));
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Until it's given out, a new assignment is kept as a draft as it's filled in.
+  useKeepDraft(existing ? null : me, {
+    title,
+    instructions,
+    bank,
+    source,
+    tags,
+    picked: [...picked],
+    count,
+    timeLimitSec,
+    dueOn,
+    studentIds: [...studentIds],
+  });
 
   // Words already given out stay pickable even if they aren't in the bank shown: deleted since,
   // or picked from another bank.
@@ -156,6 +240,7 @@ function AssignmentFields({ existing, startBank, accounts }: AssignmentFieldsPro
         },
         existing?.id,
       );
+      if (!existing) clearDraft(me);
       toast(existing ? 'Đã lưu bài tập' : `Đã giao bài cho ${studentIds.size} học viên`);
       void navigate(`/assignments/${id}`, { replace: Boolean(existing) });
     } catch (err) {
@@ -178,6 +263,7 @@ function AssignmentFields({ existing, startBank, accounts }: AssignmentFieldsPro
         }
       />
       <form noValidate onSubmit={(event) => void submit(event)} className="max-w-2xl space-y-4">
+        {draft && onDiscard && <DraftNotice draft={draft} onDiscard={onDiscard} />}
         <SetupRow step={1} title="Tên bài" htmlFor="assignment-title">
           <input
             id="assignment-title"
@@ -295,8 +381,26 @@ function AssignmentFields({ existing, startBank, accounts }: AssignmentFieldsPro
         <button type="submit" disabled={saving} className={buttonClass('primary', 'lg', 'w-full sm:w-auto')}>
           {existing ? <Check /> : <Send />} {existing ? 'Lưu thay đổi' : 'Giao bài'}
         </button>
+        {!existing && (
+          <p className="text-xs text-faint">
+            Bài chưa giao được tự lưu làm bản nháp trên trình duyệt này, nên bạn có thể rời trang rồi quay lại soạn tiếp.
+          </p>
+        )}
       </form>
     </>
+  );
+}
+
+/** Says the form opened on a draft, with a way to start over instead. */
+function DraftNotice({ draft, onDiscard }: { draft: AssignmentFormDraft; onDiscard: () => void }) {
+  return (
+    <div role="status" className="flex flex-wrap items-center gap-3 rounded-2xl bg-accent-soft px-4 py-3 text-sm text-ink">
+      <FilePenLine className="size-4 shrink-0 text-accent-ink" aria-hidden />
+      <p className="min-w-0 flex-1">Bạn đang soạn tiếp bản nháp {savedLabel(draft)}.</p>
+      <button type="button" onClick={onDiscard} className={buttonClass('secondary', 'sm')}>
+        <Trash2 /> Bỏ bản nháp
+      </button>
+    </div>
   );
 }
 

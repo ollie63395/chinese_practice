@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { ANIMALS, makeTeacher, otherDevice, seed, signUp, WORDS } from './helpers';
+import { ANIMALS, items, makeTeacher, otherDevice, seed, signUp, WORDS } from './helpers';
 
 /** A student's row on an assignment's page. */
 const studentRow = (teacher: Page, name: string) =>
@@ -121,6 +121,77 @@ test("a teacher gives out words from a student's own word bank", async ({ page, 
   await page.getByRole('button', { name: 'Bốc 1 từ' }).click();
   await expect(page.getByRole('heading', { name: 'Chuẩn bị bài nói' })).toBeVisible();
   await expect(page.getByRole('main')).toContainText('猫');
+  await teacher.context().close();
+});
+
+test('a new assignment is kept as a draft until it is given out', async ({ page, browser }) => {
+  const title = `Gia đình em ${Date.now().toString(36)}`;
+  const name = `Đỗ Minh Khang ${Date.now().toString(36)}`;
+  const student = await signUp(page, { name });
+
+  const teacher = await otherDevice(browser, page);
+  const teacherAccount = await signUp(teacher, { name: 'Cô Lan' });
+  await makeTeacher(teacherAccount.login);
+  await seed(teacher, WORDS);
+
+  // The teacher fills everything in, then reloads before giving it out.
+  await teacher.goto('/#/assignments/new');
+  await teacher.locator('#assignment-title').fill(title);
+  await teacher.locator('#assignment-instructions').fill('Dùng ít nhất hai từ.');
+  await teacher.getByRole('group', { name: 'Lấy từ' }).getByRole('button', { name: 'Tự chọn' }).click();
+  const choices = teacher.getByRole('list', { name: 'Các từ' });
+  await choices.getByRole('checkbox', { name: /猫/ }).check();
+  await choices.getByRole('checkbox', { name: /狗/ }).check();
+  await teacher.getByRole('button', { name: '30 giây' }).click();
+  await teacher.locator('#assignment-due').fill(tomorrow());
+  await teacher.getByLabel('Tìm học viên').fill(student.login);
+  await teacher.getByRole('checkbox', { name }).check();
+  await teacher.reload();
+
+  const expectRestored = async () => {
+    await expect(teacher.getByText(/Bạn đang soạn tiếp bản nháp lưu/)).toBeVisible();
+    await expect(teacher.locator('#assignment-title')).toHaveValue(title);
+    await expect(teacher.locator('#assignment-instructions')).toHaveValue('Dùng ít nhất hai từ.');
+    await expect(choices.getByRole('checkbox', { name: /猫/ })).toBeChecked();
+    await expect(choices.getByRole('checkbox', { name: /狗/ })).toBeChecked();
+    await expect(choices.getByRole('checkbox', { name: /学校/ })).not.toBeChecked();
+    await expect(teacher.getByText('Học viên bốc từ trong số 2 từ.')).toBeVisible();
+    await expect(teacher.getByRole('button', { name: '30 giây' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(teacher.locator('#assignment-due')).toHaveValue(tomorrow());
+    await expect(teacher.getByRole('checkbox', { name })).toBeChecked();
+  };
+  await expectRestored();
+
+  // Going to another page keeps it too, and the list of assignments shows it.
+  await teacher.getByRole('main').getByRole('link', { name: 'Bài tập', exact: true }).click();
+  const draftRow = items(teacher).filter({ hasText: 'Bản nháp' });
+  await expect(draftRow).toContainText(title);
+  await expect(draftRow).toContainText('Chưa giao');
+  await draftRow.getByRole('link', { name: title }).click();
+  await expectRestored();
+
+  // Giving it out clears the draft.
+  await teacher.getByRole('button', { name: 'Giao bài', exact: true }).click();
+  await expect(teacher.getByText('Đã giao bài cho 1 học viên')).toBeVisible();
+  await expect(teacher.getByRole('heading', { name: title })).toBeVisible();
+  await teacher.goto('/#/assignments');
+  await expect(items(teacher).filter({ hasText: title })).toContainText('0/1 đã hoàn thành');
+  await expect(items(teacher).filter({ hasText: 'Bản nháp' })).toHaveCount(0);
+  await teacher.getByRole('link', { name: 'Giao bài mới' }).click();
+  await expect(teacher.locator('#assignment-title')).toHaveValue('');
+  await expect(teacher.getByText(/Bạn đang soạn tiếp bản nháp/)).toHaveCount(0);
+
+  // A draft can also be thrown away, to start over.
+  await teacher.locator('#assignment-title').fill('Bài sẽ bỏ');
+  await teacher.reload();
+  await expect(teacher.locator('#assignment-title')).toHaveValue('Bài sẽ bỏ');
+  await teacher.getByRole('button', { name: 'Bỏ bản nháp' }).click();
+  await teacher.getByRole('dialog').getByRole('button', { name: 'Bỏ bản nháp' }).click();
+  await expect(teacher.locator('#assignment-title')).toHaveValue('');
+  await expect(teacher.getByText(/Bạn đang soạn tiếp bản nháp/)).toHaveCount(0);
+  await teacher.reload();
+  await expect(teacher.locator('#assignment-title')).toHaveValue('');
+  await expect(teacher.getByText(/Bạn đang soạn tiếp bản nháp/)).toHaveCount(0);
   await teacher.context().close();
 });
 
